@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero" style="text-align: left; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; padding: 4rem 0;">
+    <div>
+        <h1 style="font-family: 'Outfit', sans-serif; font-size: 3.5rem; line-height: 1.1; font-weight: 900; background: var(--gradient-hero); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Detect Fake News.<br>Verify Sources.<br>Read Smarter.</h1>
+        <p class="hero-subtitle" style="margin: 1.5rem 0 2.5rem; max-width: 100; text-align: left;">
+            Paste any news article URL. TruthLens AI instantly analyzes credibility, cross-references sources, detects manipulative language, and gives you a clear trust rating.
+        </p>
+
+        <!-- Error Message Display -->
+        {% if error %}
+        <div style="background: rgba(239,68,68,0.06); border: 1px solid var(--color-danger); color: var(--color-danger); padding: 1rem; border-radius: var(--radius-md); margin-bottom: 2rem; display: inline-block;">
+            <strong>Error:</strong> {{ error }}
+        </div>
+        {% endif %}
+
+        <!-- Main Input Form -->
+        <div class="search-container" style="margin: 0;">
+            <form action="/scan" method="POST" id="scan-form" class="scan-form">
+                <input type="hidden" name="deviceId" value="">
+                <div class="input-group">
+                    <span class="input-icon">🔬</span>
+                    <input type="text" 
+                           name="url" 
+                           id="url-input" 
+                           placeholder="Paste a news article URL to fact-check..." 
+                           required>
+                </div>
+                <button type="submit" class="btn btn-primary" id="scan-btn">
+                    Analyze
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Right side visual — Live Feed -->
+    <div style="position: relative; height: 400px; background: var(--bg-panel); border-radius: var(--radius-lg); border: 1px solid var(--border-color); box-shadow: var(--shadow-card); overflow: hidden; padding: 2rem; display: flex; flex-direction: column;">
+        <h3 style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-light); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; font-weight: 700;">Live Credibility Feed</h3>
+        
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 0.8rem; overflow: hidden; position: relative;">
+            <div style="padding: 1rem; background: var(--bg-alt); border-radius: var(--radius-md); border-left: 3px solid var(--color-danger); font-size: 0.85rem; color: var(--text-muted);">
+                <strong style="color: var(--color-danger);">🚨 FAKE</strong> — "Scientists confirm 5G causes…" flagged as misinformation by 4 sources.
+            </div>
+            <div style="padding: 1rem; background: var(--bg-alt); border-radius: var(--radius-md); border-left: 3px solid var(--color-success); font-size: 0.85rem; color: var(--text-muted);">
+                <strong style="color: var(--color-success);">✅ VERIFIED</strong> — Reuters article on climate summit confirmed by 6 independent sources.
+            </div>
+            <div style="padding: 1rem; background: var(--bg-alt); border-radius: var(--radius-md); border-left: 3px solid var(--color-warning); font-size: 0.85rem; color: var(--text-muted);">
+                <strong style="color: var(--color-warning);">⚠️ MIXED</strong> — Opinion piece disguised as factual reporting detected on [REDACTED].com
+            </div>
+            <div style="padding: 1rem; background: var(--bg-alt); border-radius: var(--radius-md); border-left: 3px solid var(--color-info); font-size: 0.85rem; color: var(--text-muted);">
+                <strong style="color: var(--color-info);">📰 SATIRE</strong> — The Onion article correctly identified as satirical content.
+            </div>
+            
+            <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 60px; background: linear-gradient(to bottom, transparent, var(--bg-panel));"></div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section style="margin-top: 2rem; padding-top: 4rem; border-top: 1px solid var(--border-color);">
+    <div class="features-grid" style="margin-top: 0;">
+        <div class="feature-card" style="text-align: left; padding: 2rem; border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--bg-panel);">
+            <div style="color: var(--color-primary); background: var(--color-primary-light); width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 14px; margin-bottom: 1.5rem; font-size: 1.6rem;">🧠</div>
+            <h3 style="font-size: 1.2rem;">AI Credibility Analysis</h3>
+            <p style="margin-top: 0.5rem; line-height: 1.7; color: var(--text-muted);">Our AI reads the full article, detects bias, emotional manipulation, and rates the credibility on a 0-100 scale.</p>
+        </div>
+        <div class="feature-card" style="text-align: left; padding: 2rem; border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--bg-panel);">
+            <div style="color: var(--color-primary); background: var(--color-primary-light); width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 14px; margin-bottom: 1.5rem; font-size: 1.6rem;">🔗</div>
+            <h3 style="font-size: 1.2rem;">Source Cross-Reference</h3>
+            <p style="margin-top: 0.5rem; line-height: 1.7; color: var(--text-muted);">Automatically identifies linked sources, external references, and social media presence to verify authenticity.</p>
+        </div>
+        <div class="feature-card" style="text-align: left; padding: 2rem; border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--bg-panel);">
+            <div style="color: var(--color-primary); background: var(--color-primary-light); width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 14px; margin-bottom: 1.5rem; font-size: 1.6rem;">📊</div>
+            <h3 style="font-size: 1.2rem;">Sentiment & Bias Mapping</h3>
+            <p style="margin-top: 0.5rem; line-height: 1.7; color: var(--text-muted);">Breaks down the emotional tone, detects loaded language, and highlights potential political or ideological bias.</p>
+        </div>
+    </div>
+</section>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loading-overlay" style="display: none;">
+    <div class="spinner"></div>
+    <h2 style="font-size: 1.6rem; font-weight: 700; margin-bottom: 0.5rem; font-family: 'Outfit', sans-serif; color: var(--color-primary);">Analyzing Article...</h2>
+    <p style="color: var(--text-muted); font-weight: 500;" id="loading-text">Extracting article content...</p>
+</div>
+
+<style>
+@keyframes pulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(13, 150, 104, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(13, 150, 104, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(13, 150, 104, 0); }
+}
+@media (max-width: 768px) {
+    .hero { grid-template-columns: 1fr !important; gap: 2rem !important; padding: 2rem 0 !important; }
+    .hero h1 { font-size: 2.5rem !important; }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('scan-form');
+        const overlay = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+
+        if (form && overlay) {
+            form.addEventListener('submit', function(e) {
+                overlay.style.display = 'flex';
+                setTimeout(() => { loadingText.innerText = "Checking article credibility..."; }, 1500);
+                setTimeout(() => { loadingText.innerText = "Running AI sentiment analysis..."; }, 3500);
+                setTimeout(() => { loadingText.innerText = "Cross-referencing sources..."; }, 5500);
+            });
+        }
+        
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted && overlay) {
+                overlay.style.display = 'none';
+                loadingText.innerText = "Extracting article content...";
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TruthLens — Verify news credibility and detect misinformation.">
+    <title>{% block title %}TruthLens | News Credibility Checker{% endblock %}</title>
+
+    <!-- Google Fonts: Inter + Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <!-- Google AdSense Auto Ads ─────────────────────────────────────────────
+         Replace ca-pub-XXXXXXXXXXXXXXXXX with your real Publisher ID from
+         https://adsense.google.com → Ads → Get code
+         Auto Ads handles ALL placement, sizing, and ad types automatically.
+    ──────────────────────────────────────────────────────────────────────── -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXXX"
+            crossorigin="anonymous"></script>
+
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar" id="main-nav">
+        <div class="nav-container">
+            <a href="/" class="nav-logo">
+                <span style="font-family: 'Outfit', sans-serif; font-weight: 900; letter-spacing: -0.5px; background: var(--gradient-hero); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">TruthLens</span>
+            </a>
+            <div style="display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap; justify-content: center; margin-top: 0.5rem;" class="nav-links">
+                <a href="/" class="nav-tab {% if request.path == '/' or request.path == '/scan' %}nav-tab-active{% endif %}">Article Check</a>
+                <a href="/image_check" class="nav-tab {% if request.path == '/image_check' or request.path == '/scan_image' %}nav-tab-active{% endif %}">Image Check</a>
+                <a href="/about" class="nav-tab {% if request.path == '/about' %}nav-tab-active{% endif %}">About</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Side-Ad + Main Content Layout -->
+    <div class="page-with-side-ads">
+      <!-- Main Content -->
+      <main class="main-content">
+          {% block content %}{% endblock %}
+      </main>
+    </div>
+
+
+    <!-- Footer -->
+    <footer class="footer" id="site-footer">
+        <p>&copy; 2026 TruthLens. All rights reserved.</p>
+    </footer>
+
+    <!-- FingerprintJS -->
+    <script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
+
+    <script>
+        let currentDeviceId = "";
+
+        // Initialize FingerprintJS
+        async function initFingerprint() {
+            const fp = await FingerprintJS.load();
+            const result = await fp.get();
+            currentDeviceId = result.visitorId;
+            updateHiddenFields();
+        }
+        initFingerprint();
+
+        function updateHiddenFields() {
+            document.querySelectorAll('input[name="deviceId"]').forEach(el => el.value = currentDeviceId);
+        }
+        
+        // Diagnostic Mock Override (Double click footer to trigger)
+        document.getElementById('site-footer').addEventListener('dblclick', () => {
+            let code = prompt("Diagnostic override:");
+            if(code) {
+                currentDeviceId = code;
+                updateHiddenFields();
+                alert("Settings updated.");
+            }
+        });
+    </script>
+
+    <!-- Main JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

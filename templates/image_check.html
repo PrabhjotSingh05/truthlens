@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero" style="text-align: left; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; padding: 4rem 0;">
+    <div>
+        <h1 style="font-family: 'Outfit', sans-serif; font-size: 3.5rem; line-height: 1.1; font-weight: 900; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Image Fact-Check.<br>Detect Fakes.<br>Verify Truth.</h1>
+        <p class="hero-subtitle" style="margin: 1.5rem 0 2.5rem; max-width: 100; text-align: left;">
+            Upload WhatsApp forwards, memes, or social media screenshots to verify their authenticity. Our Vision AI detects manipulation, analyzes context, and identifies the truth behind the image.
+        </p>
+
+        <!-- Error Message Display -->
+        {% if error %}
+        <div style="background: rgba(239,68,68,0.06); border: 1px solid var(--color-danger); color: var(--color-danger); padding: 1rem; border-radius: var(--radius-md); margin-bottom: 2rem; display: inline-block;">
+            <strong>Error:</strong> {{ error }}
+        </div>
+        {% endif %}
+
+        <!-- Main Input Form -->
+        <div class="search-container" style="margin: 0; padding: 0; background: transparent; box-shadow: none;">
+            <form action="/scan_image" method="POST" enctype="multipart/form-data" id="scan-form" style="display: flex; flex-direction: column; gap: 1rem;">
+                <input type="hidden" name="deviceId" value="">
+                
+                <!-- Drag and Drop Zone -->
+                <div id="drop-zone" style="border: 2px dashed var(--color-primary); border-radius: var(--radius-lg); padding: 3rem 2rem; text-align: center; background: var(--bg-panel); cursor: pointer; transition: all 0.3s ease; position: relative;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">📸</div>
+                    <h3 style="font-size: 1.2rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.5rem;">Drag & Drop Image Here</h3>
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">or click to browse from your device</p>
+                    <p style="color: var(--text-light); font-size: 0.75rem; margin-top: 1rem;">Supports JPG, PNG, WEBP (Max 5MB)</p>
+                    
+                    <input type="file" name="image" id="file-input" accept="image/jpeg, image/png, image/webp" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
+                </div>
+
+                <!-- Preview Area -->
+                <div id="preview-container" style="display: none; align-items: center; gap: 1rem; padding: 1rem; background: var(--bg-panel); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                    <img id="image-preview" src="" alt="Preview" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px;">
+                    <div style="flex: 1;">
+                        <div id="file-name" style="font-weight: 600; font-size: 0.9rem; color: var(--text-main); word-break: break-all;">filename.jpg</div>
+                        <div id="file-size" style="font-size: 0.8rem; color: var(--text-muted);">0 KB</div>
+                    </div>
+                    <button type="button" id="remove-btn" style="background: rgba(239,68,68,0.1); color: var(--color-danger); border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem;">Remove</button>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="scan-btn" style="width: 100%; justify-content: center; opacity: 0.5; cursor: not-allowed;" disabled>
+                    Analyze Image
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Right side visual — Live Feed -->
+    <div style="position: relative; height: 400px; background: var(--bg-panel); border-radius: var(--radius-lg); border: 1px solid var(--border-color); box-shadow: var(--shadow-card); overflow: hidden; padding: 2rem; display: flex; flex-direction: column;">
+        <h3 style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-light); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; font-weight: 700;">Recent Scans</h3>
+        
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 0.8rem; overflow: hidden; position: relative;">
+            <div style="padding: 1rem; background: var(--bg-alt); border-radius: var(--radius-md); border-left: 3px solid var(--color-danger); font-size: 0.85rem; color: var(--text-muted);">
+                <strong style="color: var(--color-danger);">🚨 AI GENERATED</strong> — "Pope wearing puffer jacket" image flagged as Midjourney v5 generation.
+            </div>
+            <div style="padding: 1rem; background: var(--bg-alt); border-radius: var(--radius-md); border-left: 3px solid var(--color-warning); font-size: 0.85rem; color: var(--text-muted);">
+                <strong style="color: var(--color-warning);">⚠️ OUT OF CONTEXT</strong> — WhatsApp forward claiming "recent protests" is actually from 2018.
+            </div>
+            <div style="padding: 1rem; background: var(--bg-alt); border-radius: var(--radius-md); border-left: 3px solid var(--color-success); font-size: 0.85rem; color: var(--text-muted);">
+                <strong style="color: var(--color-success);">✅ AUTHENTIC</strong> — No signs of digital manipulation detected in uploaded screenshot.
+            </div>
+            <div style="padding: 1rem; background: var(--bg-alt); border-radius: var(--radius-md); border-left: 3px solid var(--color-danger); font-size: 0.85rem; color: var(--text-muted);">
+                <strong style="color: var(--color-danger);">🚨 PHOTOSHOPPED</strong> — Text in the news banner has been digitally altered to mislead viewers.
+            </div>
+            
+            <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 60px; background: linear-gradient(to bottom, transparent, var(--bg-panel));"></div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section style="margin-top: 2rem; padding-top: 4rem; border-top: 1px solid var(--border-color);">
+    <div class="features-grid" style="margin-top: 0;">
+        <div class="feature-card" style="text-align: left; padding: 2rem; border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--bg-panel);">
+            <div style="color: var(--color-primary); background: var(--color-primary-light); width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 14px; margin-bottom: 1.5rem; font-size: 1.6rem;">🖼️</div>
+            <h3 style="font-size: 1.2rem;">Visual Anomaly Detection</h3>
+            <p style="margin-top: 0.5rem; line-height: 1.7; color: var(--text-muted);">Identifies unnatural lighting, inconsistent shadows, and warped geometry typical of AI generation.</p>
+        </div>
+        <div class="feature-card" style="text-align: left; padding: 2rem; border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--bg-panel);">
+            <div style="color: var(--color-primary); background: var(--color-primary-light); width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 14px; margin-bottom: 1.5rem; font-size: 1.6rem;">📝</div>
+            <h3 style="font-size: 1.2rem;">Text Context Analysis</h3>
+            <p style="margin-top: 0.5rem; line-height: 1.7; color: var(--text-muted);">Reads text inside memes and screenshots to cross-reference claims against factual databases.</p>
+        </div>
+        <div class="feature-card" style="text-align: left; padding: 2rem; border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--bg-panel);">
+            <div style="color: var(--color-primary); background: var(--color-primary-light); width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 14px; margin-bottom: 1.5rem; font-size: 1.6rem;">🔎</div>
+            <h3 style="font-size: 1.2rem;">Contextual Fact-Checking</h3>
+            <p style="margin-top: 0.5rem; line-height: 1.7; color: var(--text-muted);">Determines if genuine photos are being used in a misleading way or attributed to the wrong event.</p>
+        </div>
+    </div>
+</section>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loading-overlay" style="display: none;">
+    <div class="spinner"></div>
+    <h2 style="font-size: 1.6rem; font-weight: 700; margin-bottom: 0.5rem; font-family: 'Outfit', sans-serif; color: var(--color-primary);">Analyzing Image...</h2>
+    <p style="color: var(--text-muted); font-weight: 500;" id="loading-text">Extracting visual features...</p>
+</div>
+
+<style>
+@media (max-width: 768px) {
+    .hero { grid-template-columns: 1fr !important; gap: 2rem !important; padding: 2rem 0 !important; }
+    .hero h1 { font-size: 2.5rem !important; }
+}
+#drop-zone:hover {
+    background: rgba(13, 150, 104, 0.05);
+    border-color: var(--color-primary-dark);
+}
+#drop-zone.dragover {
+    background: rgba(13, 150, 104, 0.1);
+    border-color: var(--color-primary);
+    transform: scale(1.02);
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('scan-form');
+        const overlay = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const previewContainer = document.getElementById('preview-container');
+        const imagePreview = document.getElementById('image-preview');
+        const fileName = document.getElementById('file-name');
+        const fileSize = document.getElementById('file-size');
+        const removeBtn = document.getElementById('remove-btn');
+        const submitBtn = document.getElementById('scan-btn');
+
+        // Drag and drop events
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+        });
+
+        dropZone.addEventListener('drop', function(e) {
+            let dt = e.dataTransfer;
+            let files = dt.files;
+            
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFiles(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                handleFiles(this.files[0]);
+            }
+        });
+
+        removeBtn.addEventListener('click', function() {
+            fileInput.value = '';
+            previewContainer.style.display = 'none';
+            dropZone.style.display = 'block';
+            submitBtn.style.opacity = '0.5';
+            submitBtn.style.cursor = 'not-allowed';
+            submitBtn.disabled = true;
+        });
+
+        function handleFiles(file) {
+            // Check file type
+            if (!file.type.match('image.*')) {
+                alert('Please upload an image file (JPG, PNG, WEBP)');
+                return;
+            }
+
+            // Check file size (5MB max)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File size exceeds 5MB limit');
+                return;
+            }
+
+            // Display file info
+            fileName.textContent = file.name;
+            fileSize.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+
+            // Create preview
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                imagePreview.src = e.target.result;
+                dropZone.style.display = 'none';
+                previewContainer.style.display = 'flex';
+                
+                // Enable submit button
+                submitBtn.style.opacity = '1';
+                submitBtn.style.cursor = 'pointer';
+                submitBtn.disabled = false;
+            }
+            reader.readAsDataURL(file);
+        }
+
+        if (form && overlay) {
+            form.addEventListener('submit', function(e) {
+                if (fileInput.files.length === 0) {
+                    e.preventDefault();
+                    return;
+                }
+                
+                overlay.style.display = 'flex';
+                setTimeout(() => { loadingText.innerText = "Running Vision AI models..."; }, 1500);
+                setTimeout(() => { loadingText.innerText = "Checking for digital manipulation artifacts..."; }, 3500);
+                setTimeout(() => { loadingText.innerText = "Analyzing text and context..."; }, 6000);
+            });
+        }
+        
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted && overlay) {
+                overlay.style.display = 'none';
+                loadingText.innerText = "Extracting visual features...";
+            }
+        });
+    });
+</script>
+{% endblock %}

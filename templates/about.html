@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block title %}About — TruthLens{% endblock %}
+
+{% block head %}
+<style>
+  .about-wrap { max-width: 860px; margin: 0 auto; padding: 2rem 0 4rem; }
+  .about-section { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2.5rem; margin-bottom: 1.5rem; }
+  .about-h1 { font-family: 'Outfit', sans-serif; font-size: 2.2rem; font-weight: 900; margin: 0 0 0.4rem; background: var(--gradient-hero); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .about-h2 { font-family: 'Outfit', sans-serif; font-size: 1.1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-main); padding-bottom: 0.7rem; border-bottom: 2px solid var(--color-primary); margin: 0 0 1.4rem; display: inline-block; }
+  .about-p  { line-height: 1.8; color: var(--text-muted); font-size: 0.95rem; margin: 0 0 1rem; }
+  .about-p:last-child { margin-bottom: 0; }
+
+  /* How it works steps */
+  .steps { display: flex; flex-direction: column; gap: 1rem; }
+  .step  { display: flex; gap: 1.2rem; align-items: flex-start; padding: 1.1rem 1.2rem; background: var(--bg-alt); border-radius: var(--radius-md); border: 1px solid var(--border-color); }
+  .step-num { width: 36px; height: 36px; border-radius: 50%; background: var(--color-primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 0.95rem; flex-shrink: 0; }
+  .step-body h3 { margin: 0 0 0.3rem; font-size: 0.95rem; font-weight: 700; color: var(--text-main); }
+  .step-body p  { margin: 0; font-size: 0.86rem; color: var(--text-muted); line-height: 1.6; }
+
+  /* Architecture grid */
+  .arch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .arch-card { background: var(--bg-alt); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.1rem 1.2rem; }
+  .arch-card .arch-label { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; color: var(--color-primary); margin-bottom: 0.35rem; }
+  .arch-card .arch-val   { font-size: 0.9rem; font-weight: 600; color: var(--text-main); }
+  .arch-card .arch-sub   { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+  /* Limitation list */
+  .lim-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.7rem; }
+  .lim-list li { display: flex; gap: 0.7rem; align-items: flex-start; font-size: 0.9rem; color: var(--text-muted); line-height: 1.55; }
+  .lim-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-warning); flex-shrink: 0; margin-top: 6px; }
+
+  /* Privacy sections */
+  .pp-item { margin-bottom: 1.5rem; }
+  .pp-item h3 { font-size: 0.92rem; font-weight: 800; color: var(--text-main); margin: 0 0 0.5rem; }
+  .pp-item p, .pp-item ul { font-size: 0.88rem; color: var(--text-muted); line-height: 1.75; margin: 0; }
+  .pp-item ul { padding-left: 1.3rem; }
+  .pp-item ul li { margin-bottom: 0.3rem; }
+
+  /* Disclaimer box */
+  .disclaimer-box { background: rgba(239,68,68,0.04); border: 1px solid rgba(239,68,68,0.2); border-radius: var(--radius-lg); padding: 1.5rem 1.8rem; margin-bottom: 1.5rem; }
+  .disclaimer-box h2 { color: var(--color-danger); border-bottom-color: var(--color-danger); }
+  .disclaimer-box p  { color: var(--text-muted); }
+
+  @media (max-width: 640px) { .arch-grid { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="about-wrap">
+
+  <!-- Hero -->
+  <div style="text-align:center;padding:2rem 0 1.5rem;">
+    <div style="font-size:3rem;margin-bottom:0.8rem;">🔬</div>
+    <h1 class="about-h1">TruthLens</h1>
+    <p style="color:var(--text-muted);font-size:1rem;margin:0;">Credibility Engine · Built to fight misinformation</p>
+  </div>
+
+  <!-- Overview -->
+  <div class="about-section">
+    <div class="about-h2">Overview</div>
+    <p class="about-p">
+      TruthLens is a free, AI-powered credibility analysis tool that helps you evaluate the reliability of news articles and images before you share them. In an era of viral misinformation, deepfakes, and manipulated media, TruthLens provides a fast, independent second opinion — backed by multiple layers of automated analysis.
+    </p>
+    <p class="about-p">
+      When you submit a URL, TruthLens fetches the article, extracts its content, and runs it through a multi-stage analysis pipeline: it checks the publisher's historical reputation, scores the writing for objectivity and sensationalism, detects logical fallacies and propaganda techniques, cross-references the story against other news sources, and produces a plain-language credibility report. Image submissions undergo a parallel visual forensics process that detects manipulation artifacts, extracts embedded text, identifies people, and fact-checks any claims the image makes against live web sources.
+    </p>
+    <p class="about-p">
+      TruthLens is designed for general audiences — no technical knowledge is needed. All you need is a URL or an image file. Results are displayed in seconds and are free to use for personal, educational, or journalistic research purposes.
+    </p>
+  </div>
+
+  <!-- How it works -->
+  <div class="about-section">
+    <div class="about-h2">How It Works</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>Content Fetching & Extraction</h3>
+          <p>TruthLens fetches the submitted URL and extracts the article's text, metadata, author information, publication date, and social media links. For images, it reads pixel data and embedded metadata directly from the uploaded file.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>Heuristic Pre-Screening</h3>
+          <p>Before any AI call, a rules-based scanner checks for red flags: missing HTTPS, absent contact/privacy pages, suspicious domain patterns, excessive capital letters, and emotional trigger words commonly found in clickbait.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>Multi-Layer AI Analysis</h3>
+          <p>Two independent AI analysis passes examine the content from different angles — one focused on deep credibility scoring (factual grounding, objectivity, transparency, bias, propaganda indicators), the other on cross-referencing claims against related news coverage. The results are then synthesised into a single weighted verdict.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3>Live Web Cross-Reference</h3>
+          <p>For both articles and images, TruthLens searches Google News in real time to find whether the same story is being reported by other outlets, whether the claims are corroborated or contradicted, and whether an image is an old photo being reused out of context.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <h3>Credibility Report</h3>
+          <p>All signals are compiled into a structured report: trust scores, claim verdict, political bias, sentiment, narrative technique detection, key findings, related sources, and a plain-English recommendation. For images, additional forensic notes, time-period estimation, and manipulation artifact lists are included.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- System Architecture -->
+  <div class="about-section">
+    <div class="about-h2">System Architecture</div>
+    <p class="about-p" style="margin-bottom:1.4rem;">TruthLens is built on a lightweight, fast Python stack designed for reliability and low latency. All AI inference is handled by cloud APIs — no GPU hardware is required to run the service.</p>
+    <div class="arch-grid">
+      <div class="arch-card">
+        <div class="arch-label">Web Framework</div>
+        <div class="arch-val">Flask (Python)</div>
+        <div class="arch-sub">Lightweight WSGI server with Jinja2 templating</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-label">Content Scraper</div>
+        <div class="arch-val">Requests + BeautifulSoup4</div>
+        <div class="arch-sub">Structured article extraction with metadata parsing</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-label">AI Inference</div>
+        <div class="arch-val">Groq Cloud API</div>
+        <div class="arch-sub">Ultra-low latency LLM inference for text and vision tasks</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-label">News Cross-Reference</div>
+        <div class="arch-val">Google News RSS</div>
+        <div class="arch-sub">Real-time article discovery across thousands of publishers</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-label">Analysis Pipeline</div>
+        <div class="arch-val">Multi-pass parallel</div>
+        <div class="arch-sub">Independent analysis passes run concurrently, then synthesised</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-label">Frontend</div>
+        <div class="arch-val">HTML5 · CSS3 · Vanilla JS</div>
+        <div class="arch-sub">No frontend framework — fast, accessible, responsive</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-label">Image Processing</div>
+        <div class="arch-val">Vision AI + Web Search</div>
+        <div class="arch-sub">Visual forensics, claim extraction, live fact-checking</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-label">Deployment</div>
+        <div class="arch-val">Any Python host</div>
+        <div class="arch-sub">Runs on local machine, VPS, or cloud (no GPU required)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Limitations -->
+  <div class="about-section">
+    <div class="about-h2">Limitations</div>
+    <p class="about-p" style="margin-bottom:1.2rem;">TruthLens is a research and awareness tool. It is not infallible. Understanding its limitations helps you use it effectively:</p>
+    <ul class="lim-list">
+      <li><div class="lim-dot"></div><span><strong style="color:var(--text-main);">AI analysis can be wrong.</strong> Language models can misread context, miss satire, or misjudge unfamiliar writing styles. Always treat results as a starting point, not a final verdict.</span></li>
+      <li><div class="lim-dot"></div><span><strong style="color:var(--text-main);">New or obscure publishers score lower.</strong> Sites with little historical presence receive lower trust scores by default, even if the individual article is accurate.</span></li>
+      <li><div class="lim-dot"></div><span><strong style="color:var(--text-main);">Paywalled or JavaScript-heavy sites may not extract correctly.</strong> If article text cannot be fetched, the analysis falls back to title and metadata only.</span></li>
+      <li><div class="lim-dot"></div><span><strong style="color:var(--text-main);">Image forensics is probabilistic.</strong> Sophisticated AI-generated images may pass visual checks. Authentic images with unusual editing (filters, crops) may be flagged unnecessarily.</span></li>
+      <li><div class="lim-dot"></div><span><strong style="color:var(--text-main);">Not a replacement for journalism.</strong> TruthLens does not replace professional fact-checking organisations. For high-stakes decisions, consult multiple independent sources.</span></li>
+    </ul>
+  </div>
+
+  <!-- DISCLAIMER — important legal section -->
+  <div class="disclaimer-box">
+    <div class="about-h2" style="color:var(--color-danger);border-bottom-color:var(--color-danger);">Important Disclaimer</div>
+    <p class="about-p">
+      <strong style="color:var(--text-main);">TruthLens provides automated analysis for informational and educational purposes only.</strong> The credibility scores, verdicts, and recommendations generated by this tool are produced by artificial intelligence systems and are <em>not</em> verified facts, legal opinions, or professional journalistic assessments.
+    </p>
+    <p class="about-p">
+      The operators of TruthLens accept <strong style="color:var(--text-main);">no responsibility or liability</strong> for the accuracy, completeness, or reliability of any analysis, score, verdict, or summary produced by this tool. AI outputs may contain errors, omissions, biases, or hallucinations. No result from TruthLens should be used as the sole basis for any editorial, legal, financial, or personal decision.
+    </p>
+    <p class="about-p">
+      By using TruthLens, you acknowledge that all results are probabilistic estimates, that you will independently verify important information, and that you hold the operator harmless from any consequences arising from your reliance on the tool's output.
+    </p>
+  </div>
+
+  <!-- Privacy Policy -->
+  <div class="about-section">
+    <div class="about-h2">Privacy Policy</div>
+    <p class="about-p" style="margin-bottom:1.4rem;"><em>Last updated: April 2026</em></p>
+
+    <div class="pp-item">
+      <h3>1. What We Collect</h3>
+      <p>When you submit a URL or image for analysis, TruthLens temporarily processes that content to generate a report. We may log the following for operational purposes:</p>
+      <ul>
+        <li>The URL submitted (not stored beyond the session)</li>
+        <li>Anonymous usage metrics (page views, error rates) — no personal identifiers</li>
+        <li>Standard server access logs (IP address, timestamp, HTTP status) — retained for up to 30 days for security purposes</li>
+      </ul>
+    </div>
+
+    <div class="pp-item">
+      <h3>2. What We Do Not Collect</h3>
+      <ul>
+        <li>We do not create user accounts or require registration</li>
+        <li>We do not store uploaded images after analysis is complete</li>
+        <li>We do not sell, share, or rent any data to third parties for marketing</li>
+        <li>We do not use cookies for tracking or advertising beyond what Google AdSense requires (see Section 5)</li>
+      </ul>
+    </div>
+
+    <div class="pp-item">
+      <h3>3. Third-Party AI Processing</h3>
+      <p>Article text and images submitted for analysis are sent to <strong>Groq Cloud</strong> (an AI inference API) for processing. By submitting content, you agree that this content may be transmitted to Groq's servers. Please review <a href="https://groq.com/privacy-policy/" target="_blank" style="color:var(--color-primary);">Groq's Privacy Policy</a> for details on how they handle data. Do not submit content containing sensitive personal information, confidential data, or private communications.</p>
+    </div>
+
+    <div class="pp-item">
+      <h3>4. News Cross-Referencing</h3>
+      <p>Article titles and extracted claims may be submitted as search queries to <strong>Google News RSS</strong> to find related coverage. These queries do not include personal information and are used solely to enhance analysis accuracy.</p>
+    </div>
+
+    <div class="pp-item">
+      <h3>5. Advertising (Google AdSense)</h3>
+      <p>TruthLens displays advertisements served by <strong>Google AdSense</strong>. Google may use cookies and device identifiers to serve personalised ads based on your browsing history. You can opt out of personalised advertising at <a href="https://adssettings.google.com" target="_blank" style="color:var(--color-primary);">Google's Ad Settings</a>. We do not control the content of ads shown and are not responsible for advertiser claims.</p>
+    </div>
+
+    <div class="pp-item">
+      <h3>6. Children's Privacy</h3>
+      <p>TruthLens is not directed at children under 13. We do not knowingly collect information from children. If you believe a child has submitted personal data through this service, please contact us so we can delete it.</p>
+    </div>
+
+    <div class="pp-item">
+      <h3>7. Changes to This Policy</h3>
+      <p>We may update this Privacy Policy from time to time. Changes will be reflected on this page with an updated date. Continued use of TruthLens after changes constitutes acceptance of the revised policy.</p>
+    </div>
+
+
+  </div>
+
+</div>
+{% endblock %}
