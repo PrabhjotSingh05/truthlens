@@ -28,6 +28,9 @@ import json
 
 # Removed Firebase Admin SDK
 
+# Admin passcode — set ADMIN_PASSCODE env var in Render, never hardcode
+ADMIN_PASSCODE = os.getenv("ADMIN_PASSCODE", "")
+
 app = Flask(__name__)
 app.config["SECRET_KEY"] = Config.SECRET_KEY
 
@@ -75,8 +78,8 @@ def scan():
     # Check Usage Limits
     device_id = request.form.get("deviceId", "").strip()
     
-    # Admin Override
-    if device_id == "singh@002525":
+    # Admin Override (passcode set via ADMIN_PASSCODE env var on Render)
+    if ADMIN_PASSCODE and device_id == ADMIN_PASSCODE:
         pass # Allow unlimited
     else:
         allowed, reason = check_and_increment_usage(device_id=device_id, scan_type="news")
@@ -158,8 +161,8 @@ def scan_image():
     # Check Usage Limits
     device_id = request.form.get("deviceId", "").strip()
     
-    # Admin Override
-    if device_id == "singh@002525":
+    # Admin Override (passcode set via ADMIN_PASSCODE env var on Render)
+    if ADMIN_PASSCODE and device_id == ADMIN_PASSCODE:
         pass # Allow unlimited
     else:
         allowed, reason = check_and_increment_usage(device_id=device_id, scan_type="image")
