@@ -77,12 +77,13 @@ def scan():
 
     # Check Usage Limits
     device_id = request.form.get("deviceId", "").strip()
-    
+    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
     # Admin Override (passcode set via ADMIN_PASSCODE env var on Render)
     if ADMIN_PASSCODE and device_id == ADMIN_PASSCODE:
         pass # Allow unlimited
     else:
-        allowed, reason = check_and_increment_usage(device_id=device_id, scan_type="news")
+        allowed, reason = check_and_increment_usage(device_id=device_id, scan_type="news", ip=client_ip)
         if not allowed:
             return render_template("index.html", error=reason)
 
@@ -160,12 +161,13 @@ def scan_image():
         
     # Check Usage Limits
     device_id = request.form.get("deviceId", "").strip()
-    
+    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
     # Admin Override (passcode set via ADMIN_PASSCODE env var on Render)
     if ADMIN_PASSCODE and device_id == ADMIN_PASSCODE:
         pass # Allow unlimited
     else:
-        allowed, reason = check_and_increment_usage(device_id=device_id, scan_type="image")
+        allowed, reason = check_and_increment_usage(device_id=device_id, scan_type="image", ip=client_ip)
         if not allowed:
             return render_template("image_check.html", error=reason)
         

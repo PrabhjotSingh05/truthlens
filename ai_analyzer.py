@@ -148,35 +148,46 @@ def analyze_with_ai(scraped_data):
         review_texts.append(f"{i}. [{r.get('author','Anon')}]: {r['text'][:250]}")
     reviews_block = "\n".join(review_texts) or "No content blocks."
 
-    prompt = f"""Analyze this webpage for news credibility. Return ONLY valid JSON.
+    prompt = f"""You are a strict, unbiased AI news credibility analyst. Analyze this article and assign REALISTIC scores using the FULL 0-100 range.
 
-ARTICLE:
+SCORING RULES — READ CAREFULLY:
+- Do NOT cluster scores around 50-70. Use the full range.
+- Satire/parody/propaganda sites: domain_trust_score 0-20
+- Tabloids/clickbait sites: domain_trust_score 20-45
+- Average blogs/unknown sites: 40-60
+- Established regional news: 60-75
+- Major reputable outlets (BBC, Reuters, AP): 80-95
+- fact_based_score: 0-20 if pure opinion/hearsay, 20-50 if mostly opinion with few facts, 50-75 if mixed, 75-100 if heavily cited/factual
+- objectivity_score: 0-20 if clearly partisan/emotional, 20-45 if biased language, 45-70 if somewhat balanced, 70-100 if neutral reporting
+- sensationalism_score: 80-100 if clickbait/ALL CAPS/shocking language, 50-80 if moderately sensational, 20-50 if normal reporting, 0-20 if very dry/academic
+
+ARTICLE DATA:
 - Title: {page_info.get('title', 'N/A')}
 - Domain: {page_info.get('domain', 'N/A')}
 - Description: {page_info.get('description', 'N/A')[:200]}
 - Content: {raw_text[:600]}
 - Blocks: {reviews_block}
 
-JSON format:
+Return ONLY valid JSON:
 {{
-  "is_news_article": <boolean true if this is an article/blog post, or if the domain is a news site. false ONLY if it's clearly a storefront, login page, or blank. If content is sparse but URL has news keywords, evaluate the URL claim and set to true>,
-  "domain_trust_score": <0-100 score of the publisher's reputation>,
-  "fact_based_score": <0-100 score of how heavily the text relies on verifiable facts vs opinion/hearsay>,
-  "objectivity_score": <0-100 score of how impartial and balanced the writing is>,
-  "sensationalism_score": <0-100 score of clickbait, hyperbole, or emotional manipulation (lower is better)>,
-  "trust_level": "<high|medium|low>",
+  "is_news_article": <true if article/blog/news, false ONLY if storefront or login page>,
+  "domain_trust_score": <0-100, use full range per calibration above>,
+  "fact_based_score": <0-100, use full range per calibration above>,
+  "objectivity_score": <0-100, use full range per calibration above>,
+  "sensationalism_score": <0-100, use full range per calibration above>,
+  "trust_level": "<high if combined>70 | medium if 40-70 | low if <40>",
   "website_category": "<news|blog|opinion|satire|propaganda|aggregator|other>",
-  "explanation": "<3-4 sentence credibility analysis>",
-  "news_summary": "<Write a comprehensive 2-3 paragraph summary of the news story and comment on its factual basis. If content is sparse, summarize the claim in the title.>",
+  "explanation": "<3-4 sentence credibility analysis mentioning specific evidence>",
+  "news_summary": "<2-3 paragraph summary of the news story and its factual basis>",
   "overall_sentiment_summary": "<1-2 sentence tone analysis>",
   "key_findings": ["<finding1>","<finding2>","<finding3>"],
-  "recommendation": "<1-2 sentence advice>",
+  "recommendation": "<1-2 sentence actionable advice for the reader>",
   "positive_signals": ["<signal1>","<signal2>"],
   "risk_factors": ["<risk1>","<risk2>"],
   "important_links": []
 }}"""
 
-    raw = call_groq(prompt, "You are an expert AI journalist. Respond with valid JSON only.", 1200)
+    raw = call_groq(prompt, "You are a strict news credibility analyst. Use the full 0-100 scoring range. Never default to middle scores. Respond with valid JSON only.", 1200)
     if not raw or (isinstance(raw, str) and raw.startswith("ERROR_")):
         print(f"[TrustScanner] AI call returned: {raw}")
         return raw if raw else "ERROR_UNKNOWN"
@@ -297,49 +308,104 @@ def generate_ai_report(scraped_data, basic_report):
     return report
 
 def generate_image_report(data_uri):
-    """Analyze an image using Groq's Vision model to detect fakes/manipulation."""
-    prompt = """Analyze this image carefully. Is it a fake WhatsApp forward, a manipulated photo, an AI-generated image, or an authentic photograph?
-    
-Look for:
-1. AI Generation artifacts (weird hands, asymmetrical faces, melting text, physics errors).
-2. Photoshop/Manipulation (inconsistent lighting, cloned textures, fake text overlays).
-3. Out-of-context usage (looks like a real photo but the text claim in the image is sensational/fake).
+    """Analyze an image using Groq's Vision model to detect AI generation, manipulation, and misinformation."""
 
-Return ONLY valid JSON.
+    prompt = """You are an expert AI image forensics analyst. Your job is to determine if this image is AI-generated, manipulated, or authentic. Be STRICT and PRECISE — do NOT default to middle scores.
 
-JSON format:
+STEP 1 — Identify what this image is:
+- A real photograph taken by a camera
+- An AI-generated image (Midjourney, DALL-E, Stable Diffusion, etc.)
+- A digitally manipulated/photoshopped real photo
+- A screenshot (social media, WhatsApp, news)
+- A meme or graphic with text
+- A digital illustration or artwork
+- A document or infographic
+
+STEP 2 — Check for AI generation artifacts:
+- HANDS: Extra fingers, merged fingers, impossible hand positions, wrong number of fingers
+- FACES: Asymmetrical features, glassy/soulless eyes, blurry ear details, skin too smooth/perfect
+- TEXT IN IMAGE: Garbled, misspelled, distorted, or nonsensical text (major AI giveaway)
+- BACKGROUNDS: Repeating patterns, objects that defy physics, blurry/melting edges
+- LIGHTING: Inconsistent light sources, impossible shadows, overly dramatic lighting
+- FINE DETAILS: Jewelry that merges with skin, clothing logos that are distorted, buttons misaligned
+- OVERALL FEEL: Too perfect, hyperrealistic yet uncanny, dream-like quality
+
+STEP 3 — Check for Photoshop/manipulation:
+- Inconsistent pixel sharpness (part sharp, part blurry)
+- Copy-paste artifacts, cloned regions, suspicious edge halos
+- Color grading mismatches between subjects and backgrounds
+- Text overlays with suspicious fonts or placements
+- Metadata-style visual inconsistencies
+
+STEP 4 — Check for misinformation/out-of-context use:
+- Does the image show something extreme/shocking that seems staged?
+- Is there text in the image making a claim? Is it plausible?
+- Does the context feel misleading?
+
+SCORING CALIBRATION (use the FULL range):
+- authenticity_score 0-15: Obvious AI-generated (clear artifacts visible)
+- authenticity_score 16-35: Likely AI-generated or heavily manipulated
+- authenticity_score 36-55: Uncertain — some suspicious elements
+- authenticity_score 56-75: Likely real photo but may be edited/out-of-context
+- authenticity_score 76-90: Appears to be a real, unmanipulated photograph
+- authenticity_score 91-100: Clearly authentic, professional or citizen photography
+
+Return ONLY valid JSON:
 {
-  "is_authentic": <boolean true if it seems like a real, unedited photo. false if it's AI, photoshopped, or a misleading meme/screenshot>,
-  "authenticity_score": <0-100 score of how real the image is (100 = definitely real, 0 = definitely fake/AI)>,
-  "image_type": "<photograph|screenshot|meme|ai_generated|digital_art|document>",
-  "explanation": "<2-3 sentence explanation of what is in the image and whether it looks fake or real>",
-  "persons_identified": "<Mention any notable figures or general description of people in the image. e.g., 'A crowd of people', 'Pope Francis', etc.>",
-  "key_findings": ["<finding1>", "<finding2>", "<finding3>"],
+  "is_authentic": <true ONLY if authenticity_score >= 60 AND no major manipulation found>,
+  "authenticity_score": <0-100 per calibration above — do NOT default to 50>,
+  "image_type": "<photograph|ai_generated|manipulated_photo|screenshot|meme|digital_art|document|unknown>",
+  "ai_confidence": "<definitely_ai|likely_ai|possibly_ai|likely_real|definitely_real>",
+  "verdict": "<AI GENERATED|MANIPULATED|OUT OF CONTEXT|LIKELY AUTHENTIC|AUTHENTIC>",
+  "explanation": "<3-4 sentences describing what you see and specifically WHY you gave this score — cite actual observed artifacts>",
+  "persons_identified": "<describe any people visible, e.g. 'A man in a suit', 'Appears to be a political figure', 'No persons visible'>",
+  "ai_artifacts_found": ["<specific artifact 1>", "<specific artifact 2>"],
   "manipulation_signs": ["<sign1>", "<sign2>"],
-  "recommendation": "<1-2 sentence advice on whether to trust this image>"
+  "key_findings": ["<finding1>", "<finding2>", "<finding3>"],
+  "recommendation": "<1-2 sentence clear advice: should the viewer trust this image or not, and why>"
 }"""
 
-    raw = call_groq(prompt, "You are an expert digital forensics AI.", 1000, is_vision=True, image_data_uri=data_uri)
+    raw = call_groq(
+        prompt,
+        "You are a strict AI image forensics expert. Analyze every pixel detail carefully. Use the full 0-100 authenticity range — never default to 50. Respond with valid JSON only.",
+        1200,
+        is_vision=True,
+        image_data_uri=data_uri
+    )
+
     if not raw or (isinstance(raw, str) and raw.startswith("ERROR_")):
-        print(f"[TrustScanner Vision] AI call returned: {raw}")
+        print(f"[TruthLens Vision] AI call returned: {raw}")
         return None
 
     try:
         match = re.search(r'\{.*\}', raw, re.DOTALL)
         text = match.group(0) if match else raw
         result = json.loads(text)
-        
-        # Sanitize
+
+        # Sanitize scores
         result["is_authentic"] = bool(result.get("is_authentic", False))
-        result["authenticity_score"] = max(0, min(100, int(result.get("authenticity_score", 50))))
+        score = max(0, min(100, int(result.get("authenticity_score", 50))))
+        result["authenticity_score"] = score
+
+        # Auto-set is_authentic based on score if not set correctly
+        if score < 55 and result["is_authentic"]:
+            result["is_authentic"] = False
+        if score >= 70 and not result["is_authentic"]:
+            result["is_authentic"] = True
+
         result.setdefault("image_type", "unknown")
+        result.setdefault("ai_confidence", "possibly_ai")
+        result.setdefault("verdict", "UNVERIFIED")
         result.setdefault("explanation", "Could not analyze the image.")
-        result.setdefault("persons_identified", "None identified.")
-        result.setdefault("key_findings", [])
+        result.setdefault("persons_identified", "No persons visible.")
+        result.setdefault("ai_artifacts_found", [])
         result.setdefault("manipulation_signs", [])
-        result.setdefault("recommendation", "Exercise caution.")
-        
+        result.setdefault("key_findings", [])
+        result.setdefault("recommendation", "Exercise caution when sharing this image.")
+
         return result
+
     except Exception as e:
-        print(f"[TrustScanner Vision] JSON parse failed: {e}")
+        print(f"[TruthLens Vision] JSON parse failed: {e}")
         return None
+
