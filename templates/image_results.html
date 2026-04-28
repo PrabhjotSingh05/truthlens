@@ -1,1147 +1,631 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TruthLens — Image Analysis Report</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+{% extends "base.html" %}
+{% block title %}Image Analysis — TruthLens AI{% endblock %}
+
+{% block head %}
 <style>
-  :root {
-    --bg: #090b10;
-    --surface: #0f1218;
-    --surface2: #161b24;
-    --border: rgba(255,255,255,0.06);
-    --border-glow: rgba(100,220,255,0.15);
-    --text: #e8ecf4;
-    --muted: #7a8599;
-    --accent: #00d4ff;
-    --accent2: #7c3aed;
-    --red: #ff3d5a;
-    --orange: #ff8a00;
-    --yellow: #ffd60a;
-    --green: #00e676;
-    --ai-color: #ff3d5a;
-    --real-color: #00e676;
-    --font-mono: 'Space Mono', monospace;
-    --font-display: 'Syne', sans-serif;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-display);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* ── Scanline overlay ── */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
-    pointer-events: none;
-    z-index: 1000;
-  }
-
-  /* ── Noise texture ── */
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 999;
-    opacity: 0.4;
-  }
-
-  .container {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 0 24px 80px;
-  }
-
-  /* ── Header ── */
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 28px 0;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 40px;
-  }
-
-  .logo {
-    font-family: var(--font-mono);
-    font-size: 15px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--accent);
-  }
-
-  .back-btn {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--muted);
-    text-decoration: none;
-    border: 1px solid var(--border);
-    padding: 8px 16px;
-    transition: all 0.2s;
-  }
-  .back-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-  /* ── Verdict Banner ── */
-  .verdict-banner {
-    position: relative;
-    padding: 40px 48px;
-    margin-bottom: 32px;
-    overflow: hidden;
-    border: 1px solid var(--border);
-  }
-
-  .verdict-banner.authentic  { border-color: rgba(0,230,118,0.3); background: rgba(0,230,118,0.03); }
-  .verdict-banner.suspicious { border-color: rgba(255,138,0,0.3); background: rgba(255,138,0,0.03); }
-  .verdict-banner.fake       { border-color: rgba(255,61,90,0.3); background: rgba(255,61,90,0.04); }
-  .verdict-banner.ai         { border-color: rgba(255,61,90,0.4); background: rgba(255,61,90,0.05); }
-
-  .verdict-bg-text {
-    position: absolute;
-    right: 32px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-family: var(--font-mono);
-    font-size: 96px;
-    font-weight: 700;
-    opacity: 0.04;
-    letter-spacing: -4px;
-    pointer-events: none;
-    white-space: nowrap;
-  }
-
-  .verdict-label {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 4px;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 12px;
-  }
-
-  .verdict-title {
-    font-size: 48px;
-    font-weight: 800;
-    letter-spacing: -1px;
-    line-height: 1;
-    margin-bottom: 16px;
-  }
-
-  .verdict-banner.authentic  .verdict-title { color: var(--green); }
-  .verdict-banner.suspicious .verdict-title { color: var(--orange); }
-  .verdict-banner.fake       .verdict-title { color: var(--red); }
-  .verdict-banner.ai         .verdict-title { color: var(--red); }
-
-  .verdict-trust-label {
-    display: inline-block;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    padding: 6px 14px;
-    border-radius: 2px;
-    margin-bottom: 16px;
-  }
-
-  .verdict-banner.authentic  .verdict-trust-label { background: rgba(0,230,118,0.1); color: var(--green); border: 1px solid rgba(0,230,118,0.3); }
-  .verdict-banner.suspicious .verdict-trust-label { background: rgba(255,138,0,0.1); color: var(--orange); border: 1px solid rgba(255,138,0,0.3); }
-  .verdict-banner.fake       .verdict-trust-label { background: rgba(255,61,90,0.1); color: var(--red); border: 1px solid rgba(255,61,90,0.3); }
-  .verdict-banner.ai         .verdict-trust-label { background: rgba(255,61,90,0.12); color: var(--red); border: 1px solid rgba(255,61,90,0.4); }
-
-  .verdict-summary {
-    color: var(--muted);
-    font-size: 14px;
-    line-height: 1.7;
-    max-width: 640px;
-  }
-
-  /* ── AI Generated Alert ── */
-  .ai-alert {
-    background: rgba(255,61,90,0.08);
-    border: 1px solid rgba(255,61,90,0.4);
-    padding: 20px 28px;
-    margin-bottom: 32px;
-    display: flex;
-    align-items: flex-start;
-    gap: 16px;
-  }
-
-  .ai-alert-icon {
-    font-size: 28px;
-    flex-shrink: 0;
-    margin-top: 2px;
-  }
-
-  .ai-alert-title {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--red);
-    margin-bottom: 6px;
-  }
-
-  .ai-alert-text {
-    font-size: 14px;
-    color: #ffb3be;
-    line-height: 1.6;
-  }
-
-  /* ── Score Grid ── */
-  .scores-grid {
-    display: grid;
-    grid-template-columns: 280px 1fr;
-    gap: 24px;
-    margin-bottom: 32px;
-  }
-
-  @media (max-width: 720px) {
-    .scores-grid { grid-template-columns: 1fr; }
-  }
-
-  /* ── Main Score Ring ── */
-  .score-main {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px 24px;
-    position: relative;
-  }
-
-  .score-ring-wrap { position: relative; width: 160px; height: 160px; }
-
-  .score-ring-svg { width: 160px; height: 160px; transform: rotate(-90deg); }
-
-  .score-ring-bg { fill: none; stroke: var(--border); stroke-width: 10; }
-  .score-ring-fill { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1); }
-
-  .score-ring-text {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .score-number {
-    font-family: var(--font-mono);
-    font-size: 44px;
-    font-weight: 700;
-    line-height: 1;
-  }
-
-  .score-max {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--muted);
-    margin-top: 2px;
-  }
-
-  .score-label {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-top: 20px;
-  }
-
-  .confidence-badge {
-    margin-top: 12px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    padding: 4px 10px;
-    border: 1px solid var(--border);
-    color: var(--muted);
-  }
-
-  /* ── Sub Score Bars ── */
-  .score-breakdown {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    padding: 28px;
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-  }
-
-  .score-breakdown-title {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 4px;
-  }
-
-  .score-bar-row {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .score-bar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .score-bar-name {
-    font-size: 13px;
-    color: var(--text);
-    font-weight: 600;
-  }
-
-  .score-bar-val {
-    font-family: var(--font-mono);
-    font-size: 13px;
-    font-weight: 700;
-  }
-
-  .score-bar-track {
-    height: 6px;
-    background: var(--surface2);
-    border-radius: 1px;
-    overflow: hidden;
-  }
-
-  .score-bar-fill {
-    height: 100%;
-    border-radius: 1px;
-    transition: width 1.2s cubic-bezier(0.4,0,0.2,1);
-  }
-
-  /* ── Section Card ── */
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    padding: 28px;
-    margin-bottom: 24px;
-  }
-
-  .card-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 20px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .card-icon { font-size: 20px; }
-
-  .card-title {
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    flex: 1;
-  }
-
-  .card-badge {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 2px;
-    padding: 4px 10px;
-    border-radius: 2px;
-    text-transform: uppercase;
-  }
-
-  /* ── Image Preview ── */
-  .image-section {
-    display: grid;
-    grid-template-columns: 340px 1fr;
-    gap: 24px;
-    margin-bottom: 32px;
-  }
-
-  @media (max-width: 720px) {
-    .image-section { grid-template-columns: 1fr; }
-  }
-
-  .image-preview-wrap {
-    position: relative;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    padding: 16px;
-  }
-
-  .image-preview-wrap img {
-    width: 100%;
-    height: auto;
-    display: block;
-  }
-
-  .image-overlay-badge {
-    position: absolute;
-    top: 24px;
-    left: 24px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    padding: 5px 10px;
-    font-weight: 700;
-  }
-
-  .badge-ai       { background: var(--red); color: #fff; }
-  .badge-fake     { background: var(--red); color: #fff; }
-  .badge-real     { background: var(--green); color: #000; }
-  .badge-suspect  { background: var(--orange); color: #000; }
-
-  .image-meta-list {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .image-meta-item {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .image-meta-item:last-child { border-bottom: none; padding-bottom: 0; }
-
-  .image-meta-label {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-
-  .image-meta-value {
-    font-size: 14px;
-    color: var(--text);
-    line-height: 1.5;
-  }
-
-  .image-meta-value.mono {
-    font-family: var(--font-mono);
-    font-size: 12px;
-  }
-
-  /* ── Person Cards ── */
-  .person-card {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    padding: 18px;
-    margin-bottom: 12px;
-  }
-
-  .person-number {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 3px;
-    color: var(--muted);
-    margin-bottom: 6px;
-  }
-
-  .person-identity {
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--accent);
-    margin-bottom: 8px;
-  }
-
-  .person-detail {
-    font-size: 13px;
-    color: var(--muted);
-    line-height: 1.6;
-    margin-bottom: 6px;
-  }
-
-  .person-confidence {
-    display: inline-block;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    padding: 3px 8px;
-    border-radius: 2px;
-    margin-top: 6px;
-  }
-
-  .conf-high   { background: rgba(0,230,118,0.1); color: var(--green); border: 1px solid rgba(0,230,118,0.2); }
-  .conf-medium { background: rgba(255,214,10,0.1); color: var(--yellow); border: 1px solid rgba(255,214,10,0.2); }
-  .conf-low    { background: rgba(122,133,153,0.1); color: var(--muted); border: 1px solid rgba(122,133,153,0.2); }
-
-  .verification-row {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid var(--border);
-    font-size: 12px;
-    color: var(--muted);
-  }
-
-  .verification-confirmed { color: var(--green); }
-  .verification-uncertain { color: var(--yellow); }
-  .verification-contradicted { color: var(--red); }
-
-  /* ── Artifacts Grid ── */
-  .artifacts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 12px;
-  }
-
-  .artifact-chip {
-    background: rgba(255,61,90,0.06);
-    border: 1px solid rgba(255,61,90,0.2);
-    padding: 10px 14px;
-    font-size: 12px;
-    color: #ff8a9b;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .artifact-chip::before { content: '⚠'; font-size: 14px; }
-
-  /* ── Claims Table ── */
-  .claim-verdict-bar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 16px 20px;
-    border: 1px solid var(--border);
-    margin-bottom: 16px;
-    background: var(--surface2);
-  }
-
-  .verdict-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  .v-true      { background: var(--green); box-shadow: 0 0 8px var(--green); }
-  .v-false     { background: var(--red); box-shadow: 0 0 8px var(--red); }
-  .v-mislead   { background: var(--orange); box-shadow: 0 0 8px var(--orange); }
-  .v-outctx    { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); }
-  .v-unverif   { background: var(--muted); }
-
-  .verdict-claim-label {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    font-weight: 700;
-    flex: 1;
-  }
-
-  .verdict-conf {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--muted);
-  }
-
-  /* ── Findings List ── */
-  .findings-list {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .finding-item {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    font-size: 14px;
-    color: var(--text);
-    line-height: 1.6;
-    padding: 12px 16px;
-    background: var(--surface2);
-    border-left: 2px solid var(--accent);
-  }
-
-  .finding-num {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--accent);
-    margin-top: 2px;
-    flex-shrink: 0;
-  }
-
-  /* ── Risk / Positive signals ── */
-  .chips-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .chip {
-    font-size: 12px;
-    padding: 6px 12px;
-    border-radius: 2px;
-    font-family: var(--font-mono);
-    letter-spacing: 0.5px;
-  }
-
-  .chip-risk     { background: rgba(255,61,90,0.07); color: #ff8a9b; border: 1px solid rgba(255,61,90,0.15); }
-  .chip-positive { background: rgba(0,230,118,0.07); color: #80ffb3; border: 1px solid rgba(0,230,118,0.15); }
-
-  /* ── News Sources ── */
-  .news-item {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 14px 0;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .news-item:last-child { border-bottom: none; }
-
-  .news-title {
-    font-size: 14px;
-    color: var(--text);
-    line-height: 1.5;
-    font-weight: 600;
-  }
-
-  .news-meta {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-
-  .news-source {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--accent);
-  }
-
-  .news-date {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--muted);
-  }
-
-  .news-link {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--muted);
-    text-decoration: none;
-    letter-spacing: 1px;
-  }
-
-  .news-link:hover { color: var(--accent); }
-
-  /* ── Recommendation Box ── */
-  .recommendation-box {
-    background: linear-gradient(135deg, rgba(0,212,255,0.04), rgba(124,58,237,0.04));
-    border: 1px solid var(--border-glow);
-    padding: 24px 28px;
-    margin-bottom: 24px;
-  }
-
-  .recommendation-label {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 10px;
-  }
-
-  .recommendation-text {
-    font-size: 15px;
-    line-height: 1.7;
-    color: var(--text);
-  }
-
-  /* ── Pipeline Info ── */
-  .pipeline-row {
-    display: flex;
-    gap: 24px;
-    align-items: center;
-    flex-wrap: wrap;
-    padding: 16px 20px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    margin-bottom: 24px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--muted);
-  }
-
-  .pipeline-item { display: flex; align-items: center; gap: 8px; }
-  .pipeline-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
-
-  /* ── Animations ── */
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  .animate { animation: fadeUp 0.5s ease both; }
-  .animate-d1 { animation-delay: 0.05s; }
-  .animate-d2 { animation-delay: 0.1s; }
-  .animate-d3 { animation-delay: 0.15s; }
-  .animate-d4 { animation-delay: 0.2s; }
-  .animate-d5 { animation-delay: 0.25s; }
-  .animate-d6 { animation-delay: 0.3s; }
-
-  /* ── Misinfo Warning ── */
-  .misinfo-warning {
-    background: rgba(255,61,90,0.07);
-    border: 1px solid rgba(255,61,90,0.3);
-    padding: 16px 22px;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    font-size: 14px;
-    color: #ff8a9b;
-  }
-
-  .no-persons {
-    color: var(--muted);
-    font-size: 14px;
-    padding: 20px;
-    text-align: center;
-    border: 1px dashed var(--border);
-  }
+  /* Layout */
+  .ir-grid { display: grid; grid-template-columns: 3fr 2fr; gap: 2rem; margin-top: 2rem; }
+  .ir-sidebar { display: flex; flex-direction: column; gap: 1.5rem; }
+  .ir-card { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; }
+  .ir-sec { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-light); margin-bottom: 0.8rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); }
+
+  /* Verdict banner */
+  .vbanner { display: flex; align-items: center; gap: 1.2rem; padding: 1.3rem 1.6rem; border-radius: var(--radius-lg); margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .vbanner.authentic    { background: rgba(16,185,129,0.07);  border: 1px solid rgba(16,185,129,0.3); }
+  .vbanner.suspicious   { background: rgba(245,158,11,0.07);  border: 1px solid rgba(245,158,11,0.3); }
+  .vbanner.fake         { background: rgba(239,68,68,0.07);   border: 1px solid rgba(239,68,68,0.3); }
+  .vbanner.misleading   { background: rgba(249,115,22,0.07);  border: 1px solid rgba(249,115,22,0.3); }
+  .vbanner.ai_generated { background: rgba(239,68,68,0.09);   border: 1px solid rgba(239,68,68,0.4); }
+  .vbanner-icon { font-size: 2.4rem; flex-shrink: 0; }
+  .vbanner-text h2 { font-family: 'Outfit', sans-serif; font-size: 1.6rem; font-weight: 900; margin: 0 0 0.3rem; }
+  .vbanner-text p  { margin: 0; font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; }
+
+  /* AI alert strip */
+  .ai-alert-strip { display: flex; align-items: flex-start; gap: 1rem; padding: 1rem 1.2rem; background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.35); border-radius: var(--radius-lg); margin-bottom: 1.2rem; }
+  .ai-alert-strip-title { font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-danger); margin-bottom: 0.3rem; }
+  .ai-alert-strip p { margin: 0; font-size: 0.88rem; color: var(--text-main); line-height: 1.6; }
+
+  /* Claim verdict pill */
+  .claim-pill { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.4rem 1rem; border-radius: 99px; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+  .claim-TRUE           { background: rgba(16,185,129,0.15); color: #059669; border: 1px solid rgba(16,185,129,0.3); }
+  .claim-FALSE          { background: rgba(239,68,68,0.13);  color: #dc2626; border: 1px solid rgba(239,68,68,0.3); }
+  .claim-MISLEADING     { background: rgba(249,115,22,0.13); color: #ea580c; border: 1px solid rgba(249,115,22,0.3); }
+  .claim-OUT_OF_CONTEXT { background: rgba(245,158,11,0.13); color: #d97706; border: 1px solid rgba(245,158,11,0.3); }
+  .claim-UNVERIFIABLE   { background: rgba(100,116,139,0.13);color: #64748b; border: 1px solid rgba(100,116,139,0.3); }
+
+  /* Image viewer */
+  .img-viewer { position: relative; border-radius: var(--radius-lg); overflow: hidden; background: #0a0a0a; border: 1px solid var(--border-color); box-shadow: 0 4px 24px rgba(0,0,0,0.15); }
+  .img-viewer img { display: block; width: 100%; max-height: 440px; object-fit: contain; }
+  .img-badge { position: absolute; backdrop-filter: blur(6px); color: #fff; font-size: 0.75rem; font-weight: 700; padding: 0.35rem 0.85rem; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Fact row */
+  .fact-row { display: flex; gap: 0.8rem; align-items: flex-start; padding: 0.85rem 0; border-bottom: 1px solid var(--border-color); }
+  .fact-row:last-child { border-bottom: none; }
+  .fact-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+  .fact-row p { margin: 0; font-size: 0.9rem; color: var(--text-main); line-height: 1.55; }
+  .fact-mini { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.1rem; letter-spacing: 0.4px; }
+
+  /* Artifact items */
+  .artifact { display: flex; gap: 0.7rem; align-items: flex-start; padding: 0.7rem 1rem; border-radius: var(--radius-md); margin-bottom: 0.55rem; font-size: 0.88rem; }
+  .artifact.bad  { background: rgba(239,68,68,0.05);  border: 1px solid rgba(239,68,68,0.18); }
+  .artifact.good { background: rgba(16,185,129,0.05); border: 1px solid rgba(16,185,129,0.18); }
+
+  /* Model strip */
+  .model-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  .model-card { background: var(--bg-alt); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; text-align: center; }
+  .model-score { font-family: 'Outfit', sans-serif; font-size: 2rem; font-weight: 900; line-height: 1; margin-bottom: 0.25rem; }
+  .model-name  { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; color: var(--text-light); margin-top: 0.4rem; letter-spacing: 0.4px; }
+  .model-label { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem; }
+
+  /* Bars */
+  .hbar-wrap { margin-bottom: 0.9rem; }
+  .hbar-top  { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.3rem; }
+  .hbar-top span:first-child { color: var(--text-muted); }
+  .hbar-top span:last-child  { font-weight: 800; }
+  .hbar-track { height: 6px; background: var(--bg-alt); border-radius: 99px; overflow: hidden; }
+  .hbar-fill  { height: 100%; border-radius: 99px; }
+
+  /* News result */
+  .news-item { padding: 0.85rem 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); margin-bottom: 0.6rem; transition: border-color 0.2s; }
+  .news-item:hover { border-color: var(--color-primary); }
+  .news-item a { text-decoration: none; color: var(--text-main); font-weight: 600; font-size: 0.88rem; line-height: 1.4; display: block; }
+  .news-item a:hover { color: var(--color-primary); }
+  .news-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem; }
+
+  /* Text box */
+  .text-box { background: var(--bg-alt); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.9rem 1rem; font-family: monospace; font-size: 0.85rem; color: var(--text-main); line-height: 1.6; word-break: break-word; }
+
+  /* Confidence badge */
+  .conf-badge { display: inline-block; padding: 0.2rem 0.7rem; border-radius: 99px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; }
+  .conf-HIGH   { background: rgba(16,185,129,0.12); color: #059669; }
+  .conf-MEDIUM { background: rgba(245,158,11,0.12); color: #d97706; }
+  .conf-LOW    { background: rgba(239,68,68,0.12);  color: #dc2626; }
+
+  /* Score ring */
+  .ring-wrap { display: flex; justify-content: center; margin: 0.5rem 0 1rem; }
+
+  /* Old image warning */
+  .old-warn { padding: 0.9rem 1.1rem; background: rgba(249,115,22,0.07); border: 1px solid rgba(249,115,22,0.25); border-radius: var(--radius-md); margin-top: 1rem; font-size: 0.88rem; color: var(--text-main); line-height: 1.6; }
+
+  /* Misinfo risk badge */
+  .misinfo-badge { display: inline-block; padding: 0.25rem 0.8rem; border-radius: 99px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; }
+  .misinfo-CRITICAL { background: rgba(239,68,68,0.15); color: #dc2626; border: 1px solid rgba(239,68,68,0.3); }
+  .misinfo-HIGH     { background: rgba(249,115,22,0.13); color: #ea580c; border: 1px solid rgba(249,115,22,0.3); }
+  .misinfo-MEDIUM   { background: rgba(245,158,11,0.12); color: #d97706; border: 1px solid rgba(245,158,11,0.3); }
+  .misinfo-LOW      { background: rgba(16,185,129,0.12); color: #059669; border: 1px solid rgba(16,185,129,0.3); }
+
+  /* Person verification badge */
+  .pv-badge { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; padding: 0.15rem 0.6rem; border-radius: 99px; }
+  .pv-CONFIRMED    { background: rgba(16,185,129,0.12); color: #059669; }
+  .pv-LIKELY       { background: rgba(59,130,246,0.12); color: #3b82f6; }
+  .pv-UNCERTAIN    { background: rgba(245,158,11,0.12); color: #d97706; }
+  .pv-CONTRADICTED { background: rgba(239,68,68,0.12);  color: #dc2626; }
+
+  /* No-claim notice */
+  .no-claim-notice { padding: 1.4rem; background: var(--bg-alt); border: 1px dashed var(--border-color); border-radius: var(--radius-lg); text-align: center; color: var(--text-muted); font-size: 0.88rem; line-height: 1.7; }
+
+  @media (max-width: 900px) { .ir-grid { grid-template-columns: 1fr; } .model-strip { grid-template-columns: 1fr; } }
 </style>
-</head>
-<body>
+{% endblock %}
 
-<div class="container">
+{% block content %}
+<div style="animation: fadeIn 0.4s ease;">
 
-  <!-- Header -->
-  <div class="header">
-    <div class="logo">TRUTHLENS // IMAGE INTEL</div>
-    <a href="/image_check" class="back-btn">← New Scan</a>
-  </div>
+<a href="/image_check" style="font-size:0.88rem;color:var(--text-muted);font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:0.4rem;margin-bottom:1.5rem;">&#8592; New Image Check</a>
 
-  {% set score = report.authenticity_score %}
-  {% set verdict_class = 'ai' if report.is_ai_generated else ('authentic' if score >= 65 else ('suspicious' if score >= 40 else 'fake')) %}
+<!-- ═══ SETUP VARS ════════════════════════════════════════════════════════════ -->
+{% set sc = report.authenticity_score %}
+{% set fv = report.final_verdict | default("SUSPICIOUS") %}
+{% set is_ai = report.is_ai_generated or report.image_type == 'ai_generated' %}
+{% set has_news_claim = report.main_claim and report.main_claim not in ["None", "none", "", "N/A"] %}
 
-  <!-- AI Generated Alert (shown prominently if AI image) -->
-  {% if report.is_ai_generated or report.image_type == 'ai_generated' %}
-  <div class="ai-alert animate animate-d1">
-    <div class="ai-alert-icon">🤖</div>
-    <div>
-      <div class="ai-alert-title">⚠ AI Generated Image Detected</div>
-      <div class="ai-alert-text">
-        Our forensics pipeline has determined this image was created by an AI image generator (such as Midjourney, DALL-E, Stable Diffusion, or similar).
-        {% if report.is_ai_image_misinfo %}
-        <strong style="color: var(--red)"> This AI image is being used to make claims about real-world events — this is a form of AI-powered misinformation.</strong>
-        {% endif %}
-        AI-generated images should never be shared as evidence of real events or as news.
-      </div>
-    </div>
-  </div>
-  {% endif %}
+<!-- ═══ BANNER VARS ═══════════════════════════════════════════════════════════ -->
+{% if is_ai %}
+  {% set banner_class = "ai_generated" %}{% set banner_icon = "🤖" %}
+  {% set banner_title = "AI Generated Image" %}{% set banner_color = "var(--color-danger)" %}
+  {% set banner_sub = "Our forensics models have determined this image was generated by an AI tool (e.g. Midjourney, DALL-E, Stable Diffusion). It is not a real photograph." %}
+{% elif fv == "AUTHENTIC" %}
+  {% set banner_class = "authentic" %}{% set banner_icon = "✅" %}
+  {% set banner_title = "Authentic Image" %}{% set banner_color = "var(--color-success)" %}
+  {% set banner_sub = "Multiple AI models agree this appears to be a genuine, unmanipulated image." %}
+{% elif fv == "MISLEADING" %}
+  {% set banner_class = "misleading" %}{% set banner_icon = "⚠️" %}
+  {% set banner_title = "Misleading Content" %}{% set banner_color = "#ea580c" %}
+  {% set banner_sub = "Image may be real but is being used in a false or misleading context." %}
+{% elif fv == "OUT_OF_CONTEXT" %}
+  {% set banner_class = "misleading" %}{% set banner_icon = "🔄" %}
+  {% set banner_title = "Out of Context" %}{% set banner_color = "#d97706" %}
+  {% set banner_sub = "This appears to be a real image but is being misrepresented or recycled for a false claim." %}
+{% elif fv in ["FAKE", "MANIPULATED"] %}
+  {% set banner_class = "fake" %}{% set banner_icon = "🚨" %}
+  {% set banner_title = "Fake / Manipulated" %}{% set banner_color = "var(--color-danger)" %}
+  {% set banner_sub = "High probability of AI generation, Photoshop manipulation, or fabricated content." %}
+{% else %}
+  {% set banner_class = "suspicious" %}{% set banner_icon = "🔍" %}
+  {% set banner_title = "Suspicious — Verify" %}{% set banner_color = "var(--color-warning)" %}
+  {% set banner_sub = "Could not fully verify. Treat with caution and seek independent sources." %}
+{% endif %}
 
-  {% if report.is_old_image_misused %}
-  <div class="misinfo-warning animate animate-d1">
-    ⏮ <strong>Recycled Image Alert:</strong> This appears to be an older image being presented as recent or in a misleading context.
-  </div>
-  {% endif %}
-
-  <!-- Verdict Banner -->
-  <div class="verdict-banner {{ verdict_class }} animate animate-d1">
-    <div class="verdict-bg-text">
-      {% if report.is_ai_generated %}AI{% elif score >= 65 %}REAL{% elif score >= 40 %}SUSPECT{% else %}FAKE{% endif %}
-    </div>
-    <div class="verdict-label">Image Authenticity Report</div>
-    <div class="verdict-title">{{ report.final_verdict | replace('_', ' ') }}</div>
-    <div class="verdict-trust-label">{{ report.trust_label }}</div>
-    <div class="verdict-summary">{{ report.explanation or "Analysis complete. See details below." }}</div>
-  </div>
-
-  <!-- Score Grid -->
-  <div class="scores-grid animate animate-d2">
-    <!-- Main Ring -->
-    <div class="score-main">
-      <div class="score-ring-wrap">
-        <svg class="score-ring-svg" viewBox="0 0 160 160">
-          <circle class="score-ring-bg" cx="80" cy="80" r="70"/>
-          <circle class="score-ring-fill" cx="80" cy="80" r="70"
-            stroke="{% if score >= 65 %}#00e676{% elif score >= 40 %}#ff8a00{% else %}#ff3d5a{% endif %}"
-            stroke-dasharray="{{ (score / 100 * 439.82) | round(1) }} 439.82"
-            stroke-dashoffset="0"/>
-        </svg>
-        <div class="score-ring-text">
-          <span class="score-number" style="color: {% if score >= 65 %}#00e676{% elif score >= 40 %}#ff8a00{% else %}#ff3d5a{% endif %}">{{ score }}</span>
-          <span class="score-max">/100</span>
-        </div>
-      </div>
-      <div class="score-label">Authenticity Score</div>
-      <div class="confidence-badge">{{ report.confidence_level }} confidence</div>
-    </div>
-
-    <!-- Sub-score Bars -->
-    <div class="score-breakdown">
-      <div class="score-breakdown-title">Score Breakdown</div>
-
-      {% set breakdown = [
-        ("Vision Forensics", report.vision_score, "#00d4ff"),
-        ("Fact-Check Score", report.reasoning_score, "#7c3aed"),
-        ("Claim Verdict Confidence", report.claim_verdict_confidence, "#ffd60a"),
-      ] %}
-
-      {% for name, val, color in breakdown %}
-      <div class="score-bar-row">
-        <div class="score-bar-header">
-          <span class="score-bar-name">{{ name }}</span>
-          <span class="score-bar-val" style="color: {{ color }}">{{ val }}</span>
-        </div>
-        <div class="score-bar-track">
-          <div class="score-bar-fill" style="width: {{ val }}%; background: {{ color }};"></div>
-        </div>
-      </div>
-      {% endfor %}
-
-      {% if report.pipeline and report.pipeline.score_before_guardrails %}
-      <div class="score-bar-row">
-        <div class="score-bar-header">
-          <span class="score-bar-name" style="color: var(--muted); font-size: 12px;">Pre-Guardrail Score</span>
-          <span class="score-bar-val" style="color: var(--muted); font-size: 12px;">{{ report.pipeline.score_before_guardrails }}</span>
-        </div>
-        <div class="score-bar-track">
-          <div class="score-bar-fill" style="width: {{ report.pipeline.score_before_guardrails }}%; background: var(--muted);"></div>
-        </div>
-      </div>
+<!-- AI generated alert strip -->
+{% if is_ai %}
+<div class="ai-alert-strip">
+  <span style="font-size:1.8rem;flex-shrink:0;">🤖</span>
+  <div>
+    <div class="ai-alert-strip-title">⚠ AI Generated Image Detected — Do Not Share as Real</div>
+    <p>
+      Our vision forensics model identified this as an AI-generated image. Authenticity score is capped at 30 maximum for AI images.
+      {% if report.is_ai_image_misinfo %}
+        <strong style="color:var(--color-danger);"> This AI image is being used to make claims about real-world events — this is a form of AI-powered disinformation.</strong>
       {% endif %}
+    </p>
+  </div>
+</div>
+{% endif %}
 
-      <!-- Models agree indicator -->
-      <div style="margin-top: 4px; font-size: 12px; color: var(--muted); font-family: var(--font-mono);">
-        {% if report.models_agree %}
-        <span style="color: var(--green)">✓ All models in agreement</span>
-        {% else %}
-        <span style="color: var(--orange)">⚠ Models partially disagree — lower confidence</span>
-        {% endif %}
-      </div>
+<!-- Recycled image alert -->
+{% if report.is_old_image_misused and not is_ai %}
+<div class="old-warn" style="margin-bottom:1.2rem;">
+  🕰️ <strong>Recycled Image Alert:</strong> This appears to be an older image ({{ report.estimated_time_period }}) being presented in a new or misleading context.
+  {% if report.timeline_accuracy %} {{ report.timeline_accuracy }}{% endif %}
+</div>
+{% endif %}
+
+<!-- Verdict banner -->
+<div class="vbanner {{ banner_class }}">
+  <div class="vbanner-icon">{{ banner_icon }}</div>
+  <div class="vbanner-text" style="flex:1;">
+    <h2 style="color:{{ banner_color }};">{{ banner_title }}</h2>
+    <p>{{ banner_sub }}</p>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.5rem;">
+    <span style="font-family:'Outfit',sans-serif;font-size:2rem;font-weight:900;color:{{ banner_color }};">{{ sc }}<span style="font-size:1rem;font-weight:500;color:var(--text-muted);">/100</span></span>
+    {% if report.confidence_level %}
+    <span class="conf-badge conf-{{ report.confidence_level }}">{{ report.confidence_level }} Confidence</span>
+    {% endif %}
+    {% if report.trust_label %}
+    <span style="font-size:0.75rem;color:var(--text-muted);font-weight:600;">{{ report.trust_label }}</span>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ═══ MAIN GRID ═════════════════════════════════════════════════════════════ -->
+<div class="ir-grid">
+
+<!-- ── LEFT COLUMN ──────────────────────────────────────────────────────────── -->
+<div style="display:flex;flex-direction:column;gap:1.5rem;">
+
+  <!-- Image Viewer -->
+  <div class="img-viewer">
+    <img src="{{ image_data_uri }}" alt="Analyzed Image">
+    <div class="img-badge" style="top:0.9rem;left:0.9rem;background:rgba(0,0,0,0.72);">
+      {{ report.image_type | replace('_',' ') | title if report.image_type else 'Image' }}
+    </div>
+    {% if report.estimated_time_period and report.estimated_time_period not in ["Unknown","unknown",""] %}
+    <div class="img-badge" style="top:0.9rem;right:0.9rem;background:rgba(0,0,0,0.72);">
+      📅 {{ report.estimated_time_period }}
+    </div>
+    {% endif %}
+    <div class="img-badge" style="bottom:0.9rem;right:0.9rem;background:
+      {% if is_ai %}rgba(239,68,68,0.88)
+      {% elif fv == 'AUTHENTIC' %}rgba(16,185,129,0.85)
+      {% elif fv in ['FAKE','MANIPULATED'] %}rgba(239,68,68,0.85)
+      {% elif fv in ['MISLEADING','OUT_OF_CONTEXT'] %}rgba(249,115,22,0.85)
+      {% else %}rgba(245,158,11,0.85){% endif %};">
+      {{ banner_icon }} {% if is_ai %}AI GENERATED{% else %}{{ fv | replace('_',' ') }}{% endif %}
     </div>
   </div>
 
-  <!-- Image Preview + Meta -->
-  <div class="image-section animate animate-d3">
-    <div class="image-preview-wrap">
-      <img src="{{ image_data_uri }}" alt="Analyzed image" loading="lazy">
-      {% if report.is_ai_generated %}
-      <div class="image-overlay-badge badge-ai">🤖 AI GENERATED</div>
-      {% elif score < 40 %}
-      <div class="image-overlay-badge badge-fake">⚠ LIKELY FAKE</div>
-      {% elif score < 65 %}
-      <div class="image-overlay-badge badge-suspect">? SUSPICIOUS</div>
-      {% else %}
-      <div class="image-overlay-badge badge-real">✓ APPEARS REAL</div>
-      {% endif %}
-    </div>
-
-    <div class="card" style="margin-bottom: 0;">
-      <div class="card-header">
-        <span class="card-icon">🔍</span>
-        <span class="card-title">Image Details</span>
-        <span class="card-badge" style="background: var(--surface2); color: var(--accent); border: 1px solid var(--border)">
-          {{ report.image_type | replace('_', ' ') | title }}
-        </span>
+  <!-- 3-Model Score Strip -->
+  <div class="ir-card" style="padding:1.2rem;">
+    <div class="ir-sec">🤖 3-Model Ensemble Scores</div>
+    <div class="model-strip">
+      <div class="model-card">
+        <div class="model-score" style="color:{% if report.vision_score >= 70 %}var(--color-success){% elif report.vision_score >= 40 %}var(--color-warning){% else %}var(--color-danger){% endif %};">{{ report.vision_score }}</div>
+        <div class="model-label">/100</div>
+        <div class="model-name">👁 Vision</div>
+        <div class="model-label">Llama 4 Scout</div>
       </div>
-      <ul class="image-meta-list">
-        <li class="image-meta-item">
-          <span class="image-meta-label">Image Type</span>
-          <span class="image-meta-value" style="{% if report.is_ai_generated %}color: var(--red); font-weight: 700{% endif %}">
-            {{ report.image_type | replace('_', ' ') | title }}
-            {% if report.is_ai_generated %} — ⚠ AI Generated{% endif %}
-          </span>
-        </li>
-        <li class="image-meta-item">
-          <span class="image-meta-label">AI Detection</span>
-          <span class="image-meta-value mono" style="color: {% if report.is_ai_generated %}var(--red){% elif 'possibly' in (report.ai_confidence or '') %}var(--yellow){% else %}var(--green){% endif %}">
-            {{ report.ai_confidence | replace('_', ' ') | title if report.ai_confidence else 'Not determined' }}
-          </span>
-        </li>
-        {% if report.text_in_image and report.text_in_image != 'None' %}
-        <li class="image-meta-item">
-          <span class="image-meta-label">Text in Image</span>
-          <span class="image-meta-value" style="font-style: italic; color: var(--accent);">"{{ report.text_in_image }}"</span>
-        </li>
-        {% endif %}
-        {% if report.main_claim and report.main_claim != 'None' %}
-        <li class="image-meta-item">
-          <span class="image-meta-label">Main Claim</span>
-          <span class="image-meta-value">{{ report.main_claim }}</span>
-        </li>
-        {% endif %}
-        {% if report.estimated_time_period and report.estimated_time_period != 'Unknown' %}
-        <li class="image-meta-item">
-          <span class="image-meta-label">Estimated Time Period</span>
-          <span class="image-meta-value mono">{{ report.estimated_time_period }}</span>
-        </li>
-        {% endif %}
-        <li class="image-meta-item">
-          <span class="image-meta-label">Misinformation Risk</span>
-          <span class="image-meta-value" style="color: {% if report.misinformation_risk == 'CRITICAL' %}var(--red){% elif report.misinformation_risk == 'HIGH' %}var(--orange){% elif report.misinformation_risk == 'MEDIUM' %}var(--yellow){% else %}var(--green){% endif %}; font-weight: 700;">
-            {{ report.misinformation_risk or 'MEDIUM' }}
-          </span>
-        </li>
-        <li class="image-meta-item">
-          <span class="image-meta-label">Sources Cross-Referenced</span>
-          <span class="image-meta-value mono">{{ report.sources_checked }} news sources</span>
-        </li>
-      </ul>
-    </div>
-  </div>
-
-  <!-- Visual Description -->
-  {% if report.visual_description %}
-  <div class="card animate animate-d3">
-    <div class="card-header">
-      <span class="card-icon">👁</span>
-      <span class="card-title">Visual Description</span>
-    </div>
-    <p style="font-size: 14px; color: var(--text); line-height: 1.8;">{{ report.visual_description }}</p>
-  </div>
-  {% endif %}
-
-  <!-- Person Recognition -->
-  <div class="card animate animate-d3">
-    <div class="card-header">
-      <span class="card-icon">🧑</span>
-      <span class="card-title">Person Recognition</span>
-      {% if report.persons_count %}
-      <span class="card-badge" style="background: rgba(0,212,255,0.08); color: var(--accent); border: 1px solid rgba(0,212,255,0.2);">
-        {{ report.persons_count }} person(s) detected
-      </span>
-      {% endif %}
-    </div>
-
-    {% if report.persons_list %}
-      {% for person in report.persons_list %}
-      <div class="person-card">
-        <div class="person-number">PERSON {{ loop.index }}</div>
-        <div class="person-identity">
-          {{ person.likely_identity if person.likely_identity and person.likely_identity != 'Unknown' else 'Unidentified Individual' }}
-        </div>
-        {% if person.description %}
-        <div class="person-detail"><strong>Description:</strong> {{ person.description }}</div>
-        {% endif %}
-        {% if person.clothing %}
-        <div class="person-detail"><strong>Clothing:</strong> {{ person.clothing }}</div>
-        {% endif %}
-        {% if person.context_clues %}
-        <div class="person-detail"><strong>Context:</strong> {{ person.context_clues }}</div>
-        {% endif %}
-        <div>
-          {% set conf = person.confidence | upper if person.confidence else 'LOW' %}
-          <span class="person-confidence {{ 'conf-high' if conf == 'HIGH' else ('conf-medium' if conf == 'MEDIUM' else 'conf-low') }}">
-            {{ conf }} confidence
-          </span>
-        </div>
-
-        {% if report.persons_verified %}
-          {% for verified in report.persons_verified %}
-            {% if loop.index0 == loop.index0 %}
-            <div class="verification-row">
-              Verification: 
-              <span class="{{ 'verification-confirmed' if verified.verification == 'CONFIRMED' else ('verification-contradicted' if verified.verification == 'CONTRADICTED' else 'verification-uncertain') }}">
-                {{ verified.verification }}
-              </span>
-              — {{ verified.evidence }}
-            </div>
-            {% endif %}
-          {% endfor %}
-        {% endif %}
+      <div class="model-card">
+        <div class="model-score" style="color:{% if report.reasoning_score >= 70 %}var(--color-success){% elif report.reasoning_score >= 40 %}var(--color-warning){% else %}var(--color-danger){% endif %};">{{ report.reasoning_score }}</div>
+        <div class="model-label">/100</div>
+        <div class="model-name">🧠 Fact-Check</div>
+        <div class="model-label">Llama 3.3 70B</div>
       </div>
-      {% endfor %}
-    {% elif report.persons_identified and report.persons_identified != 'No persons identified.' %}
-      <p style="font-size: 14px; color: var(--text); line-height: 1.7;">{{ report.persons_identified }}</p>
+      <div class="model-card" style="border-color:var(--color-primary);">
+        <div class="model-score" style="color:{% if sc >= 70 %}var(--color-success){% elif sc >= 40 %}var(--color-warning){% else %}var(--color-danger){% endif %};">{{ sc }}</div>
+        <div class="model-label">/100</div>
+        <div class="model-name">⚖️ Final</div>
+        <div class="model-label">Synthesized</div>
+      </div>
+    </div>
+    {% if is_ai %}
+    <div style="margin-top:1rem;padding:0.6rem 1rem;background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius-md);font-size:0.82rem;color:var(--color-danger);font-weight:600;">
+      🤖 AI generation confirmed — strict scoring guardrails applied
+    </div>
+    {% elif report.models_agree %}
+    <div style="margin-top:1rem;padding:0.6rem 1rem;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:var(--radius-md);font-size:0.82rem;color:var(--color-success);font-weight:600;">
+      ✅ All models are in agreement — higher confidence result
+    </div>
     {% else %}
-      <div class="no-persons">No persons detected in this image</div>
-    {% endif %}
-
-    {% if report.persons_setting %}
-    <div style="margin-top: 14px; padding: 12px 16px; background: var(--surface2); border-left: 2px solid var(--accent);">
-      <span style="font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; display: block; margin-bottom: 4px;">Setting</span>
-      <span style="font-size: 13px; color: var(--text);">{{ report.persons_setting }}</span>
+    <div style="margin-top:1rem;padding:0.6rem 1rem;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:var(--radius-md);font-size:0.82rem;color:var(--color-warning);font-weight:600;">
+      ⚠️ Models partially disagree — result has moderate uncertainty
     </div>
     {% endif %}
   </div>
 
-  <!-- Claim Fact-Check -->
-  {% if report.main_claim and report.main_claim != 'None' %}
-  <div class="card animate animate-d4">
-    <div class="card-header">
-      <span class="card-icon">⚖️</span>
-      <span class="card-title">Claim Fact-Check</span>
+  <!-- ── NEWS CLAIM + PERSON SECTION (only if news claim detected) ─────────── -->
+  {% if has_news_claim %}
+
+  <div class="ir-card">
+    <div class="ir-sec">🔎 News Claim Analysis</div>
+
+    <!-- Extracted text -->
+    {% if report.text_in_image and report.text_in_image not in ["None","none",""] %}
+    <div style="margin-bottom:1rem;">
+      <div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.4rem;">Text Extracted from Image</div>
+      <div class="text-box">{{ report.text_in_image }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Detected claim -->
+    <div style="margin-bottom:1rem;">
+      <div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.4rem;">Claim Detected</div>
+      <p style="font-size:0.95rem;font-style:italic;color:var(--text-main);padding:0.7rem 1rem;background:var(--bg-alt);border-radius:var(--radius-md);border-left:3px solid var(--color-info);margin:0;">"{{ report.main_claim }}"</p>
     </div>
 
-    <div class="claim-verdict-bar">
-      {% set cv = report.claim_verdict | upper %}
-      <div class="verdict-dot {{ 'v-true' if cv == 'TRUE' else ('v-false' if cv == 'FALSE' else ('v-mislead' if cv == 'MISLEADING' else ('v-outctx' if cv == 'OUT_OF_CONTEXT' else 'v-unverif'))) }}"></div>
-      <div class="verdict-claim-label" style="color: {% if cv == 'TRUE' %}var(--green){% elif cv == 'FALSE' %}var(--red){% elif cv in ('MISLEADING', 'OUT_OF_CONTEXT') %}var(--orange){% else %}var(--muted){% endif %}">
-        CLAIM: {{ cv | replace('_', ' ') }}
-      </div>
-      <div class="verdict-conf">{{ report.claim_verdict_confidence }}% confidence</div>
+    <!-- Claim verdict pill + confidence + misinfo risk -->
+    <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:1rem;flex-wrap:wrap;">
+      {% set cv = report.claim_verdict | default('UNVERIFIABLE') %}
+      <span class="claim-pill claim-{{ cv }}">
+        {% if cv == 'TRUE' %}✓ Verified True
+        {% elif cv == 'FALSE' %}✗ Verified False
+        {% elif cv == 'MISLEADING' %}⚠ Misleading
+        {% elif cv == 'OUT_OF_CONTEXT' %}🔄 Out of Context
+        {% else %}? Unverifiable{% endif %}
+      </span>
+      {% if report.claim_verdict_confidence %}
+      <span style="font-size:0.8rem;color:var(--text-muted);">Confidence: <strong>{{ report.claim_verdict_confidence }}%</strong></span>
+      {% endif %}
+      {% if report.misinformation_risk %}
+      <span class="misinfo-badge misinfo-{{ report.misinformation_risk }}">{{ report.misinformation_risk }} risk</span>
+      {% endif %}
     </div>
 
     {% if report.claim_explanation %}
-    <p style="font-size: 14px; color: var(--text); line-height: 1.7; margin-bottom: 16px;">{{ report.claim_explanation }}</p>
+    <p style="font-size:0.92rem;color:var(--text-main);line-height:1.65;margin:0 0 1rem;">{{ report.claim_explanation }}</p>
     {% endif %}
 
-    {% if report.factual_truth %}
-    <div style="padding: 14px 18px; background: var(--surface2); border-left: 2px solid var(--green); margin-bottom: 12px;">
-      <div style="font-family: var(--font-mono); font-size: 9px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; margin-bottom: 6px;">What's Actually True</div>
-      <p style="font-size: 13px; color: var(--text); line-height: 1.7;">{{ report.factual_truth }}</p>
+    <!-- Factual context -->
+    {% if report.factual_truth and report.factual_truth not in ["","N/A"] %}
+    <div style="padding:0.9rem 1rem;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.18);border-radius:var(--radius-md);margin-bottom:0.8rem;">
+      <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;color:#3b82f6;margin-bottom:0.35rem;">📚 Factual Context</div>
+      <p style="margin:0;font-size:0.9rem;color:var(--text-main);line-height:1.6;">{{ report.factual_truth }}</p>
     </div>
     {% endif %}
 
-    {% if report.web_evidence_summary %}
-    <div style="padding: 14px 18px; background: var(--surface2); border-left: 2px solid var(--accent); margin-bottom: 12px;">
-      <div style="font-family: var(--font-mono); font-size: 9px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; margin-bottom: 6px;">Web Evidence</div>
-      <p style="font-size: 13px; color: var(--text); line-height: 1.7;">{{ report.web_evidence_summary }}</p>
+    <!-- Web evidence -->
+    {% if report.web_evidence_summary and report.web_evidence_summary not in ["No related news found.",""] %}
+    <div style="padding:0.9rem 1rem;background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.18);border-radius:var(--radius-md);margin-bottom:0.8rem;">
+      <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;color:var(--color-success);margin-bottom:0.35rem;">🌐 Web Evidence</div>
+      <p style="margin:0;font-size:0.9rem;color:var(--text-main);line-height:1.6;">{{ report.web_evidence_summary }}</p>
     </div>
     {% endif %}
 
-    {% if report.timeline_accuracy %}
-    <div style="padding: 14px 18px; background: var(--surface2); border-left: 2px solid var(--yellow);">
-      <div style="font-family: var(--font-mono); font-size: 9px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; margin-bottom: 6px;">Timeline Assessment</div>
-      <p style="font-size: 13px; color: var(--text); line-height: 1.7;">{{ report.timeline_accuracy }}</p>
+    <!-- Old image warning -->
+    {% if report.is_old_image_misused %}
+    <div class="old-warn">
+      🕰️ <strong>Old Image Alert:</strong> This image appears to be from an earlier period ({{ report.estimated_time_period }}) and may be circulating with a new misleading context.
+      {% if report.timeline_accuracy %} {{ report.timeline_accuracy }}{% endif %}
     </div>
     {% endif %}
+
+    <!-- ── PERSONS (only inside news claim block) ─────────────────────────── -->
+    {% set has_persons = report.persons_list and report.persons_list | length > 0 %}
+    {% if has_persons or (report.persons_identified and report.persons_identified not in ["None identified.","None","N/A","","No persons visible in this image."]) %}
+    <div style="margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--border-color);">
+      <div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.8rem;letter-spacing:0.8px;">👤 Persons Identified in Image</div>
+
+      {% if has_persons %}
+        {% for person in report.persons_list %}
+        <div style="padding:0.9rem 1rem;background:rgba(99,102,241,0.05);border:1px solid rgba(99,102,241,0.15);border-radius:var(--radius-md);margin-bottom:0.6rem;">
+          <div style="display:flex;align-items:center;gap:0.7rem;flex-wrap:wrap;margin-bottom:0.4rem;">
+            <span style="font-size:0.88rem;font-weight:800;color:var(--text-main);">
+              {{ person.likely_identity if person.likely_identity and person.likely_identity != 'Unknown' else 'Unidentified Person ' ~ loop.index }}
+            </span>
+            {% if person.confidence %}
+            <span class="conf-badge conf-{{ person.confidence | upper }}">{{ person.confidence }} confidence</span>
+            {% endif %}
+          </div>
+          {% if person.description %}
+          <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 0.2rem;line-height:1.5;"><strong style="color:var(--text-light);">Appearance:</strong> {{ person.description }}</p>
+          {% endif %}
+          {% if person.clothing %}
+          <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 0.2rem;line-height:1.5;"><strong style="color:var(--text-light);">Clothing:</strong> {{ person.clothing }}</p>
+          {% endif %}
+          {% if person.context_clues %}
+          <p style="font-size:0.85rem;color:var(--text-muted);margin:0;line-height:1.5;"><strong style="color:var(--text-light);">Context:</strong> {{ person.context_clues }}</p>
+          {% endif %}
+          {% if report.persons_verified and report.persons_verified[loop.index0] is defined %}
+          {% set pv = report.persons_verified[loop.index0] %}
+          <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.5rem;flex-wrap:wrap;">
+            <span style="font-size:0.78rem;color:var(--text-muted);">Web verification:</span>
+            <span class="pv-badge pv-{{ pv.verification | default('UNCERTAIN') }}">{{ pv.verification | default('UNCERTAIN') }}</span>
+            {% if pv.evidence %}
+            <span style="font-size:0.78rem;color:var(--text-muted);">— {{ pv.evidence }}</span>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      {% else %}
+        <div style="padding:0.8rem 1rem;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.15);border-radius:var(--radius-md);">
+          <p style="margin:0;font-size:0.9rem;color:var(--text-main);">{{ report.persons_identified }}</p>
+        </div>
+      {% endif %}
+
+      {% if report.persons_setting %}
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-top:0.5rem;">📍 <strong style="color:var(--text-light);">Setting:</strong> {{ report.persons_setting }}</p>
+      {% endif %}
+    </div>
+    {% endif %}
+    <!-- ── /PERSONS ────────────────────────────────────────────────────────── -->
+
+  </div>
+
+  {% else %}
+  <!-- ── NO NEWS CLAIM — show notice, skip persons entirely ─────────────────── -->
+  <div class="ir-card">
+    <div class="ir-sec">🔎 Claim & Person Analysis</div>
+    <div class="no-claim-notice">
+      <span style="font-size:1.6rem;display:block;margin-bottom:0.6rem;">📰</span>
+      <strong>No news claim detected in this image.</strong><br><br>
+      Person identification and claim fact-checking are only performed when the image contains a verifiable news claim, headline, caption, or assertion about real-world events.<br><br>
+      <span style="font-size:0.82rem;">If you believe this image contains a claim, make sure the text is clearly visible and resubmit.</span>
+    </div>
   </div>
   {% endif %}
+  <!-- ── /NEWS CLAIM SECTION ────────────────────────────────────────────────── -->
 
-  <!-- AI Artifacts / Manipulation Signs -->
-  {% if report.manipulation_signs %}
-  <div class="card animate animate-d4">
-    <div class="card-header">
-      <span class="card-icon">🔬</span>
-      <span class="card-title">Forensic Artifacts Found</span>
-      <span class="card-badge" style="background: rgba(255,61,90,0.1); color: var(--red); border: 1px solid rgba(255,61,90,0.2);">
-        {{ report.manipulation_signs | length }} detected
-      </span>
-    </div>
-    <div class="artifacts-grid">
-      {% for artifact in report.manipulation_signs %}
-      <div class="artifact-chip">{{ artifact }}</div>
-      {% endfor %}
-    </div>
-    {% if report.forensic_notes %}
-    <p style="margin-top: 18px; font-size: 13px; color: var(--muted); line-height: 1.7; border-top: 1px solid var(--border); padding-top: 14px;">
-      <strong style="color: var(--text);">Forensic Notes:</strong> {{ report.forensic_notes }}
-    </p>
-    {% endif %}
-    {% if report.why_low_score %}
-    <p style="margin-top: 12px; font-size: 13px; color: #ff8a9b; line-height: 1.7;">
-      <strong>Why this scored low:</strong> {{ report.why_low_score }}
-    </p>
-    {% endif %}
+  <!-- AI Summary -->
+  <div class="ir-card">
+    <div class="ir-sec">🔍 Comprehensive AI Summary</div>
+    <p style="font-size:0.97rem;line-height:1.75;color:var(--text-main);margin:0;">{{ report.explanation }}</p>
   </div>
-  {% endif %}
 
   <!-- Key Findings -->
   {% if report.key_findings %}
-  <div class="card animate animate-d4">
-    <div class="card-header">
-      <span class="card-icon">📋</span>
-      <span class="card-title">Key Findings</span>
-    </div>
-    <ul class="findings-list">
-      {% for finding in report.key_findings %}
-      <li class="finding-item">
-        <span class="finding-num">0{{ loop.index }}</span>
-        <span>{{ finding }}</span>
-      </li>
-      {% endfor %}
-    </ul>
-  </div>
-  {% endif %}
-
-  <!-- Credibility Factors -->
-  {% if report.credibility_factors %}
-  <div class="card animate animate-d5">
-    <div class="card-header">
-      <span class="card-icon">📊</span>
-      <span class="card-title">Credibility Factors</span>
-    </div>
-    <div class="chips-row">
-      {% for factor in report.credibility_factors %}
-      <span class="chip chip-risk">{{ factor }}</span>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- Recommendation -->
-  {% if report.recommendation %}
-  <div class="recommendation-box animate animate-d5">
-    <div class="recommendation-label">⚡ Analyst Recommendation</div>
-    <div class="recommendation-text">{{ report.recommendation }}</div>
-  </div>
-  {% endif %}
-
-  <!-- Related News -->
-  {% if report.related_news %}
-  <div class="card animate animate-d5">
-    <div class="card-header">
-      <span class="card-icon">📰</span>
-      <span class="card-title">Related News Sources</span>
-      <span class="card-badge" style="background: var(--surface2); color: var(--muted); border: 1px solid var(--border);">
-        {{ report.related_news | length }} sources
-      </span>
-    </div>
-    {% for news in report.related_news %}
-    <div class="news-item">
-      <div class="news-title">{{ news.title }}</div>
-      <div class="news-meta">
-        {% if news.source %}<span class="news-source">{{ news.source }}</span>{% endif %}
-        {% if news.date %}<span class="news-date">{{ news.date }}</span>{% endif %}
-        {% if news.link %}<a href="{{ news.link }}" target="_blank" rel="noopener" class="news-link">→ Read</a>{% endif %}
+  <div class="ir-card">
+    <div class="ir-sec">📋 Key Findings</div>
+    {% set dot_colors = ['var(--color-primary)','#8b5cf6','var(--color-warning)','#06b6d4','#f43f5e'] %}
+    {% for finding in report.key_findings %}
+    <div class="fact-row">
+      <div class="fact-dot" style="background:{{ dot_colors[loop.index0 % 5] }};"></div>
+      <div>
+        <div class="fact-mini">Finding {{ loop.index }}</div>
+        <p>{{ finding }}</p>
       </div>
     </div>
     {% endfor %}
   </div>
   {% endif %}
 
-  <!-- Pipeline Info -->
-  {% if report.pipeline %}
-  <div class="pipeline-row animate animate-d6">
-    <div class="pipeline-item"><div class="pipeline-dot"></div>3-Model Ensemble Pipeline</div>
-    {% if report.pipeline.total_ms %}
-    <div class="pipeline-item">⏱ {{ (report.pipeline.total_ms / 1000) | round(1) }}s analysis</div>
+  <!-- Manipulation / Forensics -->
+  <div class="ir-card">
+    {% if report.manipulation_signs and report.manipulation_signs | length > 0 and report.manipulation_signs[0] not in ["None detected.","","None","No signs detected","None found"] %}
+      <div class="ir-sec" style="color:var(--color-danger);">⚡ Manipulation / AI Artifacts Detected</div>
+      {% for sign in report.manipulation_signs %}
+      <div class="artifact bad">
+        <span style="color:var(--color-danger);font-weight:800;flex-shrink:0;">✗</span>
+        <span>{{ sign }}</span>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="ir-sec" style="color:var(--color-success);">✅ No Obvious Manipulation Detected</div>
+      <div class="artifact good">
+        <span style="color:var(--color-success);font-weight:800;flex-shrink:0;">✓</span>
+        <span>No typical signs of digital manipulation found. Still verify the source and context independently.</span>
+      </div>
     {% endif %}
-    {% if report.pipeline.news_sources %}
-    <div class="pipeline-item">📰 {{ report.pipeline.news_sources }} news sources</div>
+    {% if report.forensic_notes and report.forensic_notes not in ["","N/A"] %}
+    <div style="margin-top:1rem;padding:0.8rem 1rem;background:var(--bg-alt);border-radius:var(--radius-md);border:1px solid var(--border-color);">
+      <div style="font-size:0.68rem;font-weight:800;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.3rem;">Technical Forensic Notes</div>
+      <p style="margin:0;font-size:0.82rem;color:var(--text-muted);line-height:1.6;">{{ report.forensic_notes }}</p>
+    </div>
     {% endif %}
-    {% if report.pipeline.guardrails_applied %}
-    <div class="pipeline-item" style="color: var(--red);">🛡 Strict guardrails enforced</div>
-    {% endif %}
-    <div class="pipeline-item" style="margin-left: auto; font-size: 10px;">TruthLens Image Intelligence v2.0</div>
+  </div>
+
+  <!-- Credibility Factors (only when claim exists) -->
+  {% if has_news_claim and report.credibility_factors %}
+  <div class="ir-card">
+    <div class="ir-sec">⚖️ Credibility Factors</div>
+    {% for factor in report.credibility_factors %}
+    <div class="fact-row">
+      <div class="fact-dot" style="background:var(--color-info);"></div>
+      <div><p>{{ factor }}</p></div>
+    </div>
+    {% endfor %}
   </div>
   {% endif %}
 
+  <!-- Related News (only when claim exists and news found) -->
+  {% if has_news_claim and report.related_news and report.related_news | length > 0 %}
+  <div class="ir-card">
+    <div class="ir-sec">📰 Related News Sources ({{ report.related_news | length }} found)</div>
+    {% for item in report.related_news %}
+    <div class="news-item">
+      <a href="{{ item.link }}" target="_blank" rel="noopener">{{ item.title }}</a>
+      <div class="news-meta">
+        {% if item.source %}<strong>{{ item.source }}</strong> · {% endif %}{{ item.date }}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Recommendation -->
+  {% if report.recommendation %}
+  <div style="background:var(--color-primary-light);border:1px solid rgba(13,150,104,0.2);border-radius:var(--radius-lg);padding:1.2rem 1.5rem;">
+    <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;color:var(--color-primary-dark);margin-bottom:0.5rem;letter-spacing:0.6px;">🎯 Recommendation</div>
+    <p style="margin:0;font-size:0.95rem;font-weight:500;color:var(--text-main);line-height:1.65;">{{ report.recommendation }}</p>
+  </div>
+  {% endif %}
+
+</div><!-- /left column -->
+
+<!-- ── RIGHT SIDEBAR ─────────────────────────────────────────────────────────── -->
+<div class="ir-sidebar">
+
+  <!-- Score Ring -->
+  <div class="ir-card" style="text-align:center;">
+    <div class="ir-sec" style="text-align:left;">Authenticity Score</div>
+    {% set clr = '#10b981' if sc >= 70 else ('#f59e0b' if sc >= 40 else '#ef4444') %}
+    <div class="ring-wrap">
+      <svg width="150" height="150" viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="75" cy="75" r="62" fill="none" stroke="var(--border-color)" stroke-width="13"/>
+        <circle cx="75" cy="75" r="62" fill="none" stroke="{{ clr }}" stroke-width="13"
+          stroke-dasharray="{{ (sc / 100 * 389.6) | round(1) }} 389.6"
+          stroke-linecap="round" transform="rotate(-90 75 75)"/>
+        <text x="75" y="67" text-anchor="middle" font-size="34" font-weight="900" fill="var(--text-main)">{{ sc }}</text>
+        <text x="75" y="86" text-anchor="middle" font-size="12" fill="var(--text-muted)">/100</text>
+        <text x="75" y="104" text-anchor="middle" font-size="10" font-weight="800" fill="{{ clr }}">
+          {% if is_ai %}AI GEN{% elif sc >= 70 %}AUTHENTIC{% elif sc >= 40 %}SUSPICIOUS{% else %}FAKE{% endif %}
+        </text>
+      </svg>
+    </div>
+    <p style="font-size:0.82rem;color:var(--text-muted);margin:0;text-align:center;">
+      {% if is_ai %}Confirmed AI-generated image.
+      {% elif sc >= 70 %}High confidence — likely unedited.
+      {% elif sc >= 40 %}Mixed signals — use caution.
+      {% else %}Very likely fake or manipulated.{% endif %}
+    </p>
+  </div>
+
+  <!-- Claim Verdict Box (only if claim exists) -->
+  {% if has_news_claim %}
+  <div class="ir-card">
+    <div class="ir-sec">📌 Claim Verdict</div>
+    {% set cv = report.claim_verdict | default('UNVERIFIABLE') %}
+    <div style="text-align:center;padding:1rem 0;">
+      <div style="font-size:3rem;margin-bottom:0.5rem;">
+        {% if cv == 'TRUE' %}✅{% elif cv == 'FALSE' %}❌{% elif cv == 'MISLEADING' %}⚠️{% elif cv == 'OUT_OF_CONTEXT' %}🔄{% else %}❓{% endif %}
+      </div>
+      <div style="font-family:'Outfit',sans-serif;font-size:1.3rem;font-weight:900;color:
+        {% if cv == 'TRUE' %}var(--color-success)
+        {% elif cv == 'FALSE' %}var(--color-danger)
+        {% elif cv in ['MISLEADING','OUT_OF_CONTEXT'] %}var(--color-warning)
+        {% else %}var(--text-muted){% endif %};">
+        {{ cv | replace('_',' ') }}
+      </div>
+      {% if report.claim_verdict_confidence %}
+      <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.3rem;">{{ report.claim_verdict_confidence }}% confidence</div>
+      {% endif %}
+      {% if report.misinformation_risk %}
+      <div style="margin-top:0.6rem;"><span class="misinfo-badge misinfo-{{ report.misinformation_risk }}">{{ report.misinformation_risk }} misinfo risk</span></div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Probability Bars -->
+  <div class="ir-card">
+    <div class="ir-sec">Probability Breakdown</div>
+    <div class="hbar-wrap">
+      <div class="hbar-top"><span>Authentic</span><span style="color:var(--color-success);">{{ sc }}%</span></div>
+      <div class="hbar-track"><div class="hbar-fill" style="width:{{ sc }}%;background:var(--color-success);"></div></div>
+    </div>
+    <div class="hbar-wrap">
+      <div class="hbar-top"><span>Fake / Manipulated</span><span style="color:var(--color-danger);">{{ 100 - sc }}%</span></div>
+      <div class="hbar-track"><div class="hbar-fill" style="width:{{ 100 - sc }}%;background:var(--color-danger);"></div></div>
+    </div>
+    <div class="hbar-wrap">
+      <div class="hbar-top"><span>Vision score</span><span>{{ report.vision_score }}/100</span></div>
+      <div class="hbar-track"><div class="hbar-fill" style="width:{{ report.vision_score }}%;background:var(--color-info);"></div></div>
+    </div>
+    <div class="hbar-wrap">
+      <div class="hbar-top"><span>Fact-check score</span><span>{{ report.reasoning_score }}/100</span></div>
+      <div class="hbar-track"><div class="hbar-fill" style="width:{{ report.reasoning_score }}%;background:#8b5cf6;"></div></div>
+    </div>
+    {% if report.pipeline and report.pipeline.score_before_guardrails and report.pipeline.score_before_guardrails != sc %}
+    <div style="margin-top:0.5rem;padding:0.5rem 0.8rem;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:var(--radius-md);font-size:0.78rem;color:var(--text-muted);">
+      🛡 Guardrails reduced score: <strong>{{ report.pipeline.score_before_guardrails }}</strong> → <strong style="color:var(--color-danger);">{{ sc }}</strong>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Image Details -->
+  <div class="ir-card">
+    <div class="ir-sec">Image Details</div>
+    <div style="display:flex;flex-direction:column;gap:0.7rem;font-size:0.85rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="color:var(--text-muted);">Type</span>
+        <span style="font-weight:700;text-transform:capitalize;{% if is_ai %}color:var(--color-danger);{% endif %}">
+          {{ report.image_type | replace('_',' ') if report.image_type else '—' }}{% if is_ai %} 🤖{% endif %}
+        </span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="color:var(--text-muted);">AI Detection</span>
+        <span style="font-weight:700;color:{% if is_ai %}var(--color-danger){% elif 'possibly' in (report.ai_confidence or '') %}var(--color-warning){% else %}var(--color-success){% endif %};">
+          {{ report.ai_confidence | replace('_',' ') | title if report.ai_confidence else '—' }}
+        </span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="color:var(--text-muted);">Est. Period</span>
+        <span style="font-weight:600;">{{ report.estimated_time_period if report.estimated_time_period else '—' }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="color:var(--text-muted);">Old image misused</span>
+        <span style="font-weight:700;color:{% if report.is_old_image_misused %}var(--color-warning){% else %}var(--color-success){% endif %};">
+          {% if report.is_old_image_misused %}Yes ⚠️{% else %}No ✓{% endif %}
+        </span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="color:var(--text-muted);">News claim found</span>
+        <span style="font-weight:700;color:{% if has_news_claim %}var(--color-info){% else %}var(--text-muted){% endif %};">
+          {% if has_news_claim %}Yes — verified{% else %}None detected{% endif %}
+        </span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="color:var(--text-muted);">Sources checked</span>
+        <span style="font-weight:600;">{{ report.sources_checked | default(0) }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="color:var(--text-muted);">Models used</span>
+        <span style="font-weight:600;">3 AI models</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- What AI Looks For -->
+  <div class="ir-card">
+    <div class="ir-sec">What Vision AI Checks</div>
+    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.55rem;">
+      {% for item in [
+        "AI generation artifacts (skin, hands, eyes)",
+        "Asymmetric faces & unnatural anatomy",
+        "Inconsistent lighting & impossible shadows",
+        "Warped / garbled background text",
+        "Cloning, texture repetition, edge halos",
+        "News claims & headline verification",
+        "Person ID in news images only",
+        "Timeline & date consistency"
+      ] %}
+      <li style="display:flex;gap:0.6rem;font-size:0.82rem;color:var(--text-muted);align-items:flex-start;">
+        <span style="color:var(--color-primary);font-weight:700;flex-shrink:0;">✓</span>
+        <span>{{ item }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <!-- Disclaimer -->
+  <div style="padding:1rem;background:var(--bg-alt);border-radius:var(--radius-md);border:1px dashed var(--border-color);">
+    <p style="font-size:0.75rem;color:var(--text-muted);margin:0;line-height:1.65;">
+      <strong>Note:</strong> This is a 3-model AI analysis. Person identification runs only when a news claim is detected in the image. Results are probabilistic — always cross-reference with trusted sources and reverse image search.
+    </p>
+  </div>
+
+</div><!-- /sidebar -->
+</div><!-- /ir-grid -->
+
 </div>
-</body>
-</html>
+{% endblock %}
